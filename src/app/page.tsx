@@ -2,54 +2,28 @@
 
 import { ChangeEvent, useState } from "react";
 
-type FoodItem = {
-  name: string;
-  amount: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
-
-const demoFoods: FoodItem[] = [
-  {
-    name: "White rice",
-    amount: "180 g",
-    calories: 234,
-    protein: 4.3,
-    carbs: 51,
-    fat: 0.5,
-  },
-  {
-    name: "Chicken adobo",
-    amount: "150 g",
-    calories: 310,
-    protein: 28,
-    carbs: 7,
-    fat: 19,
-  },
-  {
-    name: "Fried egg",
-    amount: "55 g",
-    calories: 95,
-    protein: 6.5,
-    carbs: 0.5,
-    fat: 7.2,
-  },
-];
+import { analyzeFood } from "@/lib/analyze-food";
+import type { FoodAnalysis } from "@/lib/food-analysis";
 
 export default function Home() {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
-  const [analyzed, setAnalyzed] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
+    setSelectedFile(file);
     setFileName(file.name);
-    setAnalyzed(false);
+
+    setAnalysis(null);
+    setError(null);
 
     const reader = new FileReader();
 
@@ -60,22 +34,41 @@ export default function Home() {
     reader.readAsDataURL(file);
   }
 
-  const totalCalories = demoFoods.reduce(
-    (total, item) => total + item.calories,
-    0
-  );
+  async function handleAnalyze() {
+    if (!selectedFile || isAnalyzing) return;
 
-  const totalProtein = demoFoods.reduce(
+    try {
+      setIsAnalyzing(true);
+      setError(null);
+      setAnalysis(null);
+
+      const result = await analyzeFood(selectedFile);
+
+      setAnalysis(result);
+    } catch (error) {
+      console.error("Food analysis failed:", error);
+
+      setError(
+        "Food analysis failed. Please try again in a moment."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  const foods = analysis?.foods ?? [];
+
+  const totalProtein = foods.reduce(
     (total, item) => total + item.protein,
     0
   );
 
-  const totalCarbs = demoFoods.reduce(
+  const totalCarbs = foods.reduce(
     (total, item) => total + item.carbs,
     0
   );
 
-  const totalFat = demoFoods.reduce(
+  const totalFat = foods.reduce(
     (total, item) => total + item.fat,
     0
   );
@@ -89,6 +82,7 @@ export default function Home() {
             <h1 className="text-xl font-bold">
               AI <span className="text-emerald-600">Fitness</span>
             </h1>
+
             <p className="text-xs text-slate-500">
               Temporary project name
             </p>
@@ -112,8 +106,8 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-2xl text-slate-500">
-            Upload a photo of your meal. Soon Gemini will identify the food,
-            estimate the portion, and calculate calories and macros.
+            Upload a photo of your meal. Gemini will identify visible
+            foods and estimate the portion, calories, and macros.
           </p>
         </section>
 
@@ -122,6 +116,7 @@ export default function Home() {
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-5">
               <h3 className="text-lg font-semibold">Food photo</h3>
+
               <p className="text-sm text-slate-500">
                 Plate photo is required.
               </p>
@@ -140,7 +135,9 @@ export default function Home() {
                     📷
                   </div>
 
-                  <p className="font-semibold">Choose a food photo</p>
+                  <p className="font-semibold">
+                    Choose a food photo
+                  </p>
 
                   <p className="mt-1 text-sm text-slate-500">
                     JPG, PNG or WEBP
@@ -163,15 +160,18 @@ export default function Home() {
             )}
 
             <button
-              onClick={() => setAnalyzed(true)}
-              disabled={!preview}
+              onClick={handleAnalyze}
+              disabled={!selectedFile || isAnalyzing}
               className="mt-5 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              ✨ Analyze Food
+              {isAnalyzing
+                ? "✨ Analyzing Food..."
+                : "✨ Analyze Food"}
             </button>
 
             <p className="mt-3 text-center text-xs text-slate-400">
-              Demo mode for now. Gemini comes next.
+              AI nutrition results are estimates and may vary depending
+              on ingredients and preparation.
             </p>
           </section>
 
@@ -179,20 +179,41 @@ export default function Home() {
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">AI Meal Analysis</h3>
+                <h3 className="text-lg font-semibold">
+                  AI Meal Analysis
+                </h3>
+
                 <p className="text-sm text-slate-500">
                   Review before saving.
                 </p>
               </div>
 
-              {analyzed && (
+              {analysis && (
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Demo result
+                  AI result
                 </span>
               )}
             </div>
 
-            {!analyzed ? (
+            {error && (
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            {isAnalyzing ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
+                <div className="mb-4 text-5xl">✨</div>
+
+                <p className="font-medium">
+                  Gemini is analyzing your meal...
+                </p>
+
+                <p className="mt-1 max-w-xs text-sm text-slate-500">
+                  Identifying foods and estimating calories and macros.
+                </p>
+              </div>
+            ) : !analysis ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
                 <div className="mb-4 text-5xl">🍽️</div>
 
@@ -202,32 +223,61 @@ export default function Home() {
                   Upload a meal photo and click Analyze Food.
                 </p>
               </div>
+            ) : foods.length === 0 ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl bg-slate-50 p-6 text-center">
+                <div className="mb-4 text-5xl">🤔</div>
+
+                <p className="font-medium">
+                  No food confidently detected
+                </p>
+
+                <p className="mt-2 max-w-sm text-sm text-slate-500">
+                  {analysis.notes ||
+                    "Try uploading a clearer photo of the meal."}
+                </p>
+              </div>
             ) : (
               <>
                 <div className="space-y-3">
-                  {demoFoods.map((food) => (
+                  {foods.map((food, index) => (
                     <div
-                      key={food.name}
+                      key={`${food.name}-${index}`}
                       className="rounded-2xl border border-slate-200 p-4"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="font-semibold">{food.name}</p>
+                          <p className="font-semibold">
+                            {food.name}
+                          </p>
 
                           <p className="text-sm text-slate-500">
-                            Estimated amount: {food.amount}
+                            Estimated amount: ~
+                            {Math.round(food.estimatedGrams)} g
                           </p>
                         </div>
 
                         <p className="font-bold text-emerald-600">
-                          {food.calories} kcal
+                          ~{Math.round(food.calories)} kcal
                         </p>
                       </div>
 
-                      <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                        <span>Protein {food.protein}g</span>
-                        <span>Carbs {food.carbs}g</span>
-                        <span>Fat {food.fat}g</span>
+                      <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+                        <span>
+                          Protein {food.protein.toFixed(1)}g
+                        </span>
+
+                        <span>
+                          Carbs {food.carbs.toFixed(1)}g
+                        </span>
+
+                        <span>
+                          Fat {food.fat.toFixed(1)}g
+                        </span>
+
+                        <span>
+                          Confidence{" "}
+                          {Math.round(food.confidence * 100)}%
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -239,32 +289,53 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-3xl font-bold">
-                    {totalCalories} kcal
+                    ~{Math.round(analysis.totalCalories)} kcal
                   </p>
 
                   <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
                     <div>
-                      <p className="text-slate-400">Protein</p>
+                      <p className="text-slate-400">
+                        Protein
+                      </p>
+
                       <p className="font-semibold">
                         {totalProtein.toFixed(1)}g
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-slate-400">Carbs</p>
+                      <p className="text-slate-400">
+                        Carbs
+                      </p>
+
                       <p className="font-semibold">
                         {totalCarbs.toFixed(1)}g
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-slate-400">Fat</p>
+                      <p className="text-slate-400">
+                        Fat
+                      </p>
+
                       <p className="font-semibold">
                         {totalFat.toFixed(1)}g
                       </p>
                     </div>
                   </div>
                 </div>
+
+                {analysis.notes && (
+                  <div className="mt-5 rounded-2xl bg-amber-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      AI notes
+                    </p>
+
+                    <p className="mt-1 text-sm text-amber-900">
+                      {analysis.notes}
+                    </p>
+                  </div>
+                )}
 
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold hover:bg-slate-50">
@@ -284,7 +355,9 @@ export default function Home() {
         <section className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="mb-3 text-2xl">⚖️</div>
+
             <h3 className="font-semibold">Food Scale</h3>
+
             <p className="mt-1 text-sm text-slate-500">
               Upload a scale photo for measured food weight.
             </p>
@@ -292,7 +365,9 @@ export default function Home() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="mb-3 text-2xl">🏃</div>
+
             <h3 className="font-semibold">Exercise</h3>
+
             <p className="mt-1 text-sm text-slate-500">
               Describe workouts or upload smartwatch screenshots.
             </p>
@@ -300,7 +375,9 @@ export default function Home() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="mb-3 text-2xl">✨</div>
+
             <h3 className="font-semibold">AI Coach</h3>
+
             <p className="mt-1 text-sm text-slate-500">
               Ask questions using your own fitness data.
             </p>
