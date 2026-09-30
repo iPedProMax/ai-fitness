@@ -20,6 +20,7 @@ describe("ClarificationCard", () => {
           ],
         }}
         selectedAnswer={null}
+        disabled={false}
         onSelect={vi.fn()}
       />
     );

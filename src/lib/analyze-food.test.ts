@@ -1,60 +1,167 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
 import { analyzeFood } from "./analyze-food";
 
-afterEach(() => {
-    vi.unstubAllGlobals();
-});
+const expectedResult = {
+  foods: [
+    {
+      name: "Rolled oats",
+      estimatedGrams: 70.6,
+      calories: 272,
+      protein: 11.8,
+      carbs: 46.5,
+      fat: 4.9,
+      confidence: 0.95,
+      weightSource:
+        "SCALE_MEASURED" as const,
+      nutritionSource:
+        "AI_ESTIMATE" as const,
+    },
+  ],
+  totalCalories: 272,
+  notes: "Food analysed.",
+  clarifications: [],
+};
 
 describe("analyzeFood", () => {
-    it("sends the selected image to the food analysis API", async () => {
-        const image = new File(["fake image"], "food.jpg", {
-            type: "image/jpeg",
-        });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-        const expectedResult = {
-            foods: [
-                {
-                    name: "Pancit Bihon",
-                    estimatedGrams: 250,
-                    calories: 370,
-                    protein: 12,
-                    carbs: 55,
-                    fat: 11,
-                    confidence: 0.8,
-                },
-            ],
-            totalCalories: 370,
-            notes: "Portion visually estimated.",
-            clarifications: [],
-        };
+  it("sends an image stack to the analysis API", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify(
+            expectedResult
+          ),
+          {
+            status: 200,
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          }
+        )
+      );
 
-        const fetchMock = vi.fn().mockResolvedValue(
-            new Response(JSON.stringify(expectedResult), {
-                status: 200,
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            })
-        );
+    const firstImage =
+      new File(
+        ["food"],
+        "food.jpg",
+        {
+          type: "image/jpeg",
+        }
+      );
 
-        vi.stubGlobal("fetch", fetchMock);
+    const secondImage =
+      new File(
+        ["label"],
+        "label.jpg",
+        {
+          type: "image/jpeg",
+        }
+      );
 
-        const result = await analyzeFood(image);
+    const result =
+      await analyzeFood({
+        images: [
+          firstImage,
+          secondImage,
+        ],
+      });
 
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+    const options =
+      fetchMock.mock.calls[0][1];
 
-        const [url, options] = fetchMock.mock.calls[0] as [
-            string,
-            RequestInit,
-        ];
+    const formData =
+      options?.body as FormData;
 
-        expect(url).toBe("/api/food/analyze");
-        expect(options.method).toBe("POST");
-        expect(options.body).toBeInstanceOf(FormData);
+    expect(
+      formData.getAll("images")
+    ).toEqual([
+      firstImage,
+      secondImage,
+    ]);
 
-        const formData = options.body as FormData;
+    expect(result).toEqual(
+      expectedResult
+    );
+  });
 
-        expect(formData.get("image")).toBe(image);
-        expect(result).toEqual(expectedResult);
-    });
+  it("allows a single image", async () => {
+    vi.spyOn(
+      globalThis,
+      "fetch"
+    ).mockResolvedValue(
+      new Response(
+        JSON.stringify(
+          expectedResult
+        ),
+        {
+          status: 200,
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+        }
+      )
+    );
+
+    const image = new File(
+      ["food"],
+      "food.jpg",
+      {
+        type: "image/jpeg",
+      }
+    );
+
+    await expect(
+      analyzeFood({
+        images: [image],
+      })
+    ).resolves.toEqual(
+      expectedResult
+    );
+  });
+
+  it("rejects an empty image stack", async () => {
+    await expect(
+      analyzeFood({
+        images: [],
+      })
+    ).rejects.toThrow(
+      "At least one image is required."
+    );
+  });
+
+  it("rejects more than six images", async () => {
+    const images =
+      Array.from(
+        { length: 7 },
+        (_, index) =>
+          new File(
+            ["image"],
+            `image-${index}.jpg`,
+            {
+              type: "image/jpeg",
+            }
+          )
+      );
+
+    await expect(
+      analyzeFood({
+        images,
+      })
+    ).rejects.toThrow(
+      "You can analyze up to 6 images at a time."
+    );
+  });
 });

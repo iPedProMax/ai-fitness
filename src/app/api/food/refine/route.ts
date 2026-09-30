@@ -3,9 +3,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  foodAnalysisJsonSchema,
   foodAnalysisSchema,
 } from "../../../../lib/food-analysis";
+
+import {
+  isValidClarificationAnswer,
+} from "../../../../lib/clarification-answer";
 
 const refineRequestSchema = z.object({
   analysis: foodAnalysisSchema,
@@ -13,21 +16,189 @@ const refineRequestSchema = z.object({
   answer: z.string().min(1),
 });
 
-function roundNutrition(value: number) {
-  return Math.round(value * 10) / 10;
+const followUpClarificationSchema =
+  z.object({
+    id: z.string().min(1),
+    question: z.string().min(1),
+    options: z
+      .array(z.string().min(1))
+      .min(1),
+    allowCustomAnswer:
+      z.boolean().optional(),
+  });
+
+const additiveRefinementSchema =
+  z.object({
+    updatedName: z.string().min(1),
+
+    addedEstimatedGrams:
+      z.number().nonnegative(),
+
+    addedCalories:
+      z.number().nonnegative(),
+
+    addedProtein:
+      z.number().nonnegative(),
+
+    addedCarbs:
+      z.number().nonnegative(),
+
+    addedFat:
+      z.number().nonnegative(),
+
+    confidence: z
+      .number()
+      .min(0)
+      .max(1),
+
+    notes: z.string(),
+
+    followUpClarifications:
+      z
+        .array(
+          followUpClarificationSchema
+        )
+        .default([]),
+  });
+
+const additiveRefinementJsonSchema = {
+  type: "object",
+
+  properties: {
+    updatedName: {
+      type: "string",
+    },
+
+    addedEstimatedGrams: {
+      type: "number",
+      minimum: 0,
+    },
+
+    addedCalories: {
+      type: "number",
+      minimum: 0,
+    },
+
+    addedProtein: {
+      type: "number",
+      minimum: 0,
+    },
+
+    addedCarbs: {
+      type: "number",
+      minimum: 0,
+    },
+
+    addedFat: {
+      type: "number",
+      minimum: 0,
+    },
+
+    confidence: {
+      type: "number",
+      minimum: 0,
+      maximum: 1,
+    },
+
+    notes: {
+      type: "string",
+    },
+
+    followUpClarifications: {
+      type: "array",
+
+      items: {
+        type: "object",
+
+        properties: {
+          id: {
+            type: "string",
+          },
+
+          question: {
+            type: "string",
+          },
+
+          options: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+
+          allowCustomAnswer: {
+            type: "boolean",
+          },
+        },
+
+        required: [
+          "id",
+          "question",
+          "options",
+        ],
+      },
+    },
+  },
+
+  required: [
+    "updatedName",
+    "addedEstimatedGrams",
+    "addedCalories",
+    "addedProtein",
+    "addedCarbs",
+    "addedFat",
+    "confidence",
+    "notes",
+    "followUpClarifications",
+  ],
+} as const;
+
+function roundNutrition(
+  value: number
+) {
+  return (
+    Math.round(value * 10) / 10
+  );
 }
 
-export async function POST(request: Request) {
+function combineNotes(
+  originalNotes: string,
+  newNotes: string
+) {
+  const original =
+    originalNotes.trim();
+
+  const added =
+    newNotes.trim();
+
+  if (!original) {
+    return added;
+  }
+
+  if (!added) {
+    return original;
+  }
+
+  return `${original} ${added}`;
+}
+
+export async function POST(
+  request: Request
+) {
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const requestResult =
-      refineRequestSchema.safeParse(body);
+      refineRequestSchema.safeParse(
+        body
+      );
 
     if (!requestResult.success) {
       return NextResponse.json(
         {
-          error: "Invalid refinement request.",
+          error:
+            "Invalid refinement request.",
         },
         {
           status: 400,
@@ -38,13 +209,16 @@ export async function POST(request: Request) {
     const {
       analysis,
       clarificationId,
-      answer,
     } = requestResult.data;
+
+    const answer =
+      requestResult.data.answer.trim();
 
     const clarification =
       analysis.clarifications.find(
         (item) =>
-          item.id === clarificationId
+          item.id ===
+          clarificationId
       );
 
     if (!clarification) {
@@ -60,7 +234,8 @@ export async function POST(request: Request) {
     }
 
     if (
-      !clarification.options.includes(
+      !isValidClarificationAnswer(
+        clarification,
         answer
       )
     ) {
@@ -95,9 +270,7 @@ export async function POST(request: Request) {
     /*
      * TARE CONFIRMATION
      *
-     * This is deliberately deterministic.
-     * We do not need another Gemini call just
-     * to interpret Yes / No / Not sure.
+     * Keep this deterministic.
      */
     if (
       clarification.id.startsWith(
@@ -143,7 +316,8 @@ export async function POST(request: Request) {
         }
 
         const ratio =
-          scaleReading / currentGrams;
+          scaleReading /
+          currentGrams;
 
         const updatedFood = {
           ...affectedFood,
@@ -187,22 +361,32 @@ export async function POST(request: Request) {
         const totalCalories =
           roundNutrition(
             updatedFoods.reduce(
-              (total, food) =>
+              (
+                total,
+                food
+              ) =>
                 total +
                 food.calories,
               0
             )
           );
 
-        const tareNote = `The user confirmed the container was tared, so the ${scaleReading} g scale reading is being used as measured food weight.`;
+        const tareNote =
+          `The user confirmed the container was tared, so the ${scaleReading} g scale reading is being used as measured food weight.`;
 
         return NextResponse.json({
           ...analysis,
+
           foods: updatedFoods,
+
           totalCalories,
-          notes: analysis.notes
-            ? `${analysis.notes} ${tareNote}`
-            : tareNote,
+
+          notes:
+            combineNotes(
+              analysis.notes,
+              tareNote
+            ),
+
           clarifications:
             remainingClarifications,
         });
@@ -220,6 +404,7 @@ export async function POST(request: Request) {
             clarification.foodIndex
               ? {
                   ...food,
+
                   weightSource:
                     "AI_ESTIMATE" as const,
                 }
@@ -228,17 +413,31 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         ...analysis,
+
         foods: updatedFoods,
-        notes: analysis.notes
-          ? `${analysis.notes} ${tareNote}`
-          : tareNote,
+
+        notes: combineNotes(
+          analysis.notes,
+          tareNote
+        ),
+
         clarifications:
           remainingClarifications,
       });
     }
 
     /*
-     * NORMAL INGREDIENT CLARIFICATION
+     * ADDITIVE REFINEMENT
+     *
+     * Gemini is NOT allowed to
+     * replace the base nutrition.
+     *
+     * Gemini only returns the
+     * nutrition CONTRIBUTION of
+     * confirmed additions.
+     *
+     * The server performs the
+     * final arithmetic.
      */
 
     const apiKey =
@@ -256,64 +455,174 @@ export async function POST(request: Request) {
       );
     }
 
-    const ai = new GoogleGenAI({
-      apiKey,
-    });
+    const ai =
+      new GoogleGenAI({
+        apiKey,
+      });
 
     const prompt = `
-You are refining an existing food nutrition analysis.
-
-The user has answered a clarification question.
+You are refining an existing food nutrition analysis after the user answered a clarification.
 
 IMPORTANT:
-The user's answer is a CONFIRMED FACT.
-Do not second-guess or override the user's answer.
+
+You are NOT returning the complete food analysis.
+
+You are returning ONLY an ADDITIVE REFINEMENT PLAN.
+
+The server already has the existing base calories and macronutrients.
+
+DO NOT replace, repeat, subtract, or recalculate the base nutrition.
+
+Your job is to determine the nutrition CONTRIBUTION of the additions confirmed by the user.
+
+The server will add your contribution onto the existing base values.
+
+USER ANSWER IS CONFIRMED FACT
+
+The user's answer is confirmed information.
+
+Do not second-guess whether the stated ingredients exist.
 
 Clarification question:
+
 ${clarification.question}
 
 Confirmed answer:
+
 ${answer}
 
-Affected food:
-${JSON.stringify(affectedFood, null, 2)}
+Existing affected food:
 
-Current complete analysis:
-${JSON.stringify(analysis, null, 2)}
+${JSON.stringify(
+  affectedFood,
+  null,
+  2
+)}
 
-Refinement rules:
+Existing complete analysis:
 
-1. Recalculate the nutrition of the affected food using the confirmed answer.
+${JSON.stringify(
+  analysis,
+  null,
+  2
+)}
 
-2. Keep the estimated portion weight the same unless changing it is absolutely required.
+ADDITIVE RULES
 
-3. Update the affected food's:
-- name
-- calories
-- protein
-- carbohydrates
-- fat
-- confidence
+1. addedCalories, addedProtein, addedCarbs, and addedFat must contain ONLY nutrition contributed by additions confirmed in the answer.
 
-4. Do not change unrelated food items.
+2. Do NOT include the existing food's calories or macros inside the added values.
 
-5. Preserve weightSource and scaleReadingGrams unless the clarification specifically concerns measurement.
+Example:
 
-6. Recalculate totalCalories after updating the affected item.
+Existing drink:
+32 kcal
+7.9 g carbs
 
-7. Remove the clarification that was just answered.
+Confirmed honey:
+192 kcal
+52.8 g carbs
 
-8. Preserve any other unresolved clarification questions.
+Return:
 
-9. Do not ask the same clarification again.
+addedCalories = 192
+addedCarbs = 52.8
 
-10. The confirmed ingredient does not make the entire visual estimate certain.
+DO NOT return:
 
-Other uncertainty such as portion size, cooking oil, sauce, cooking method, and hidden ingredients must still be reflected in confidence and notes.
+addedCalories = 224
 
-11. Do not claim exact nutrition when portions or preparation are estimated.
+The server will calculate:
 
-Return the complete updated food analysis.
+32 + 192 = 224 kcal
+
+and:
+
+7.9 + 52.8 = 60.7 g carbs.
+
+3. addedEstimatedGrams must represent only the estimated/measured amount of additions whose nutrition you actually included.
+
+4. If the user supplied a quantity, use that quantity reasonably.
+
+Examples:
+- "3 tablespoons honey"
+- "10 g sugar"
+- "100 ml milk"
+- "5 g creatine"
+
+5. Natural wording does not need to be perfect.
+
+Examples:
+- "3 table spoon"
+- "about 3 tbsp"
+- "some apple slices"
+
+6. If the answer contains multiple additions, process each confirmed ingredient.
+
+7. CRITICAL UNKNOWN-QUANTITY RULE:
+
+If an ingredient definitely exists but its quantity is unknown AND the quantity could materially affect calories or macronutrients:
+
+DO NOT invent an amount.
+
+DO NOT include guessed calories for that ingredient.
+
+Instead:
+
+- leave its contribution out of the added nutrition for now
+- create a follow-up clarification asking for the amount
+
+Example:
+
+User says:
+
+"3 tablespoons honey and lemonade"
+
+Honey quantity is known.
+
+Include the honey contribution.
+
+Lemonade quantity is unknown.
+
+Do not invent 50 ml or 100 ml of lemonade.
+
+Create a clarification such as:
+
+Question:
+"How much lemonade was added?"
+
+Options could include:
+["A splash", "About 50 ml", "About 100 ml", "Not sure"]
+
+allowCustomAnswer = true
+
+8. If an unknown quantity would have negligible nutritional impact, a conservative estimate may be used.
+
+Examples may include:
+- tiny herb garnish
+- a small mint leaf
+- a thin lemon slice used mainly as garnish
+
+Explain this in notes.
+
+9. Do not turn ingredients of a composed dish or drink into separate food items.
+
+10. updatedName should describe the composed food/drink naturally.
+
+11. Preserve uncertainty honestly with confidence.
+
+12. notes must explain:
+- which additions were included
+- any quantity estimates
+- any confirmed ingredient excluded pending a quantity clarification
+
+13. followUpClarifications must contain only genuinely unresolved questions.
+
+14. Never ask the exact same clarification again.
+
+15. If everything necessary is known, return an empty followUpClarifications array.
+
+Return ONLY the additive refinement plan.
 `;
 
     const interaction =
@@ -330,10 +639,12 @@ Return the complete updated food analysis.
 
         response_format: {
           type: "text",
+
           mime_type:
             "application/json",
+
           schema:
-            foodAnalysisJsonSchema,
+            additiveRefinementJsonSchema,
         },
       });
 
@@ -344,7 +655,7 @@ Return the complete updated food analysis.
       return NextResponse.json(
         {
           error:
-            "Gemini returned no refined analysis.",
+            "Gemini returned no refinement plan.",
         },
         {
           status: 502,
@@ -352,27 +663,204 @@ Return the complete updated food analysis.
       );
     }
 
-    const parsed =
+    const raw =
       JSON.parse(outputText);
 
-    const refined =
-      foodAnalysisSchema.parse(
-        parsed
+    /*
+     * New additive format.
+     */
+    const additiveResult =
+      additiveRefinementSchema.safeParse(
+        raw
       );
 
-    const cleanedResult = {
-      ...refined,
+    if (
+      additiveResult.success
+    ) {
+      const plan =
+        additiveResult.data;
 
-      clarifications:
-        refined.clarifications.filter(
+      /*
+       * SERVER-SIDE ARITHMETIC
+       *
+       * Gemini cannot overwrite
+       * the base numbers here.
+       */
+      const updatedFood = {
+        ...affectedFood,
+
+        name:
+          plan.updatedName,
+
+        estimatedGrams:
+          roundNutrition(
+            affectedFood.estimatedGrams +
+              plan.addedEstimatedGrams
+          ),
+
+        calories:
+          roundNutrition(
+            affectedFood.calories +
+              plan.addedCalories
+          ),
+
+        protein:
+          roundNutrition(
+            affectedFood.protein +
+              plan.addedProtein
+          ),
+
+        carbs:
+          roundNutrition(
+            affectedFood.carbs +
+              plan.addedCarbs
+          ),
+
+        fat:
+          roundNutrition(
+            affectedFood.fat +
+              plan.addedFat
+          ),
+
+        confidence:
+          plan.confidence,
+
+        /*
+         * Keep the original source.
+         *
+         * Example:
+         * labelled Nestea remains
+         * label-backed at its base.
+         *
+         * The AI-estimated additions
+         * are explained in notes.
+         */
+        nutritionSource:
+          affectedFood.nutritionSource,
+
+        weightSource:
+          affectedFood.weightSource,
+
+        scaleReadingGrams:
+          affectedFood.scaleReadingGrams,
+      };
+
+      const updatedFoods =
+        analysis.foods.map(
+          (food, index) =>
+            index ===
+            clarification.foodIndex
+              ? updatedFood
+              : food
+        );
+
+      const totalCalories =
+        roundNutrition(
+          updatedFoods.reduce(
+            (
+              total,
+              food
+            ) =>
+              total +
+              food.calories,
+            0
+          )
+        );
+
+      const oldClarifications =
+        analysis.clarifications.filter(
           (item) =>
             item.id !==
             clarificationId
-        ),
-    };
+        );
+
+      const generatedClarifications =
+        plan.followUpClarifications.map(
+          (item) => ({
+            ...item,
+
+            foodIndex:
+              clarification.foodIndex,
+          })
+        );
+
+      /*
+       * Avoid accidentally restoring
+       * the clarification that was
+       * just answered.
+       */
+      const cleanedGenerated =
+        generatedClarifications.filter(
+          (item) =>
+            item.id !==
+            clarificationId
+        );
+
+      return NextResponse.json({
+        ...analysis,
+
+        foods:
+          updatedFoods,
+
+        totalCalories,
+
+        notes:
+          combineNotes(
+            analysis.notes,
+            plan.notes
+          ),
+
+        clarifications: [
+          ...oldClarifications,
+          ...cleanedGenerated,
+        ],
+      });
+    }
+
+    /*
+     * Temporary backwards-compatible
+     * fallback.
+     *
+     * Existing tests or stale responses
+     * may still return the old complete
+     * analysis shape.
+     */
+    const legacyResult =
+      foodAnalysisSchema.safeParse(
+        raw
+      );
+
+    if (
+      legacyResult.success
+    ) {
+      const legacy =
+        legacyResult.data;
+
+      return NextResponse.json({
+        ...legacy,
+
+        clarifications:
+          legacy.clarifications.filter(
+            (item) =>
+              item.id !==
+              clarificationId
+          ),
+      });
+    }
+
+    console.error(
+      "Invalid additive refinement response:",
+      additiveResult.error
+    );
 
     return NextResponse.json(
-      cleanedResult
+      {
+        error:
+          "Gemini returned an invalid refinement plan.",
+      },
+      {
+        status: 502,
+      }
     );
   } catch (error) {
     console.error(
