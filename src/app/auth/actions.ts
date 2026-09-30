@@ -101,7 +101,8 @@ export async function signUpWithEmail(
 
   const { error } =
     await supabase.auth.signUp({
-      email: validation.data.email,
+      email:
+        validation.data.email,
       password:
         validation.data.password,
     });
@@ -119,4 +120,41 @@ export async function signUpWithEmail(
       "Account created. Check your email if confirmation is required, then sign in."
     )}`
   );
+}
+
+export async function signInWithGoogle() {
+  const supabase =
+    await createClient();
+
+  const siteUrl =
+    process.env
+      .NEXT_PUBLIC_SITE_URL ??
+    "http://localhost:3000";
+
+  const { data, error } =
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${siteUrl}/auth/callback`,
+      },
+    });
+
+  if (error || !data.url) {
+    return redirect(
+      `/auth/login?error=${encodeURIComponent(
+        "Unable to start Google sign in."
+      )}`
+    );
+  }
+
+  return redirect(data.url);
+}
+
+export async function signOut() {
+  const supabase =
+    await createClient();
+
+  await supabase.auth.signOut();
+
+  return redirect("/auth/login");
 }

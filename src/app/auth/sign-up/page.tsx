@@ -1,6 +1,9 @@
 import Link from "next/link";
 
-import { signUpWithEmail } from "../actions";
+import {
+  signInWithGoogle,
+  signUpWithEmail,
+} from "../actions";
 
 type SignUpPageProps = {
   searchParams: Promise<{
@@ -11,7 +14,8 @@ type SignUpPageProps = {
 export default async function SignUpPage({
   searchParams,
 }: SignUpPageProps) {
-  const params = await searchParams;
+  const params =
+    await searchParams;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
@@ -26,8 +30,10 @@ export default async function SignUpPage({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Start tracking meals and build
-            your personalized fitness goals.
+            Start tracking meals
+            and build your
+            personalized fitness
+            goals.
           </p>
         </div>
 
@@ -110,13 +116,24 @@ export default async function SignUpPage({
 
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-white/10" />
+
           <span className="text-xs text-zinc-500">
-            Google sign-up next
+            or
           </span>
+
           <div className="h-px flex-1 bg-white/10" />
         </div>
 
-        <p className="text-center text-sm text-zinc-400">
+        <form action={signInWithGoogle}>
+          <button
+            type="submit"
+            className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 font-semibold text-zinc-950 transition hover:bg-zinc-200"
+          >
+            Continue with Google
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-zinc-400">
           Already have an account?{" "}
           <Link
             href="/auth/login"
