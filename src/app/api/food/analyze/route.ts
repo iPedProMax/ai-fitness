@@ -104,6 +104,15 @@ async function createImagePart(
   };
 }
 
+function normalizeQuestion(
+  question: string
+) {
+  return question
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 function alreadyHasPreparedDrinkClarification(
   analysis: FoodAnalysis,
   foodIndex: number
@@ -155,9 +164,7 @@ function enforcePreparedDrinkClarifications(
         food.preparationState ===
           "OPEN_PREPARED" &&
         food.visibleAdditionsPresent ===
-          true &&
-        food.visibleAdditionsFullyAccountedFor ===
-          false;
+          true;
 
       if (!needsClarification) {
         return;
@@ -194,6 +201,97 @@ function enforcePreparedDrinkClarifications(
 
         allowCustomAnswer:
           true,
+      });
+    }
+  );
+
+  return {
+    ...analysis,
+
+    clarifications:
+      injectedClarifications,
+  };
+}
+
+function alreadyHasEquivalentClarification(
+  analysis: FoodAnalysis,
+  foodIndex: number,
+  question: string
+) {
+  const normalizedTarget =
+    normalizeQuestion(question);
+
+  return analysis.clarifications.some(
+    (clarification) => {
+      if (
+        clarification.foodIndex !==
+        foodIndex
+      ) {
+        return false;
+      }
+
+      return (
+        normalizeQuestion(
+          clarification.question
+        ) === normalizedTarget
+      );
+    }
+  );
+}
+
+function enforceMaterialUncertaintyClarifications(
+  analysis: FoodAnalysis
+): FoodAnalysis {
+  const injectedClarifications =
+    [...analysis.clarifications];
+
+  analysis.foods.forEach(
+    (food, foodIndex) => {
+      if (
+        food.materialUncertaintyPresent !==
+        true
+      ) {
+        return;
+      }
+
+      const proposed =
+        food.proposedClarification;
+
+      if (!proposed) {
+        return;
+      }
+
+      const currentAnalysis = {
+        ...analysis,
+
+        clarifications:
+          injectedClarifications,
+      };
+
+      if (
+        alreadyHasEquivalentClarification(
+          currentAnalysis,
+          foodIndex,
+          proposed.question
+        )
+      ) {
+        return;
+      }
+
+      injectedClarifications.push({
+        id:
+          `material_uncertainty_${foodIndex}`,
+
+        foodIndex,
+
+        question:
+          proposed.question,
+
+        options:
+          proposed.options,
+
+        allowCustomAnswer:
+          proposed.allowCustomAnswer,
       });
     }
   );
@@ -346,7 +444,7 @@ Do not assume every image represents the same food either.
 
 IMPORTANT INTERNAL PREPARATION SIGNALS
 
-For every returned food item, also classify these internal fields when possible:
+For every returned food item, classify these internal fields when possible:
 
 preparationState
 
@@ -414,6 +512,57 @@ If the additions are tiny garnish and genuinely negligible:
 visibleAdditionsFullyAccountedFor = true
 
 Do not fabricate quantities just to mark additions as accounted for.
+
+MATERIAL NUTRITION UNCERTAINTY SIGNALS
+
+For EVERY returned food item, set:
+
+materialUncertaintyPresent
+
+Set it to true only when there is a SPECIFIC unresolved ambiguity that could materially change calories or macronutrients and a concise user question could meaningfully improve the result.
+
+Do NOT set it to true merely because confidence is below 100%.
+
+Do NOT set it to true merely because portion size was visually estimated.
+
+When materialUncertaintyPresent = true:
+
+You MUST also return proposedClarification.
+
+proposedClarification must contain:
+- question
+- options
+- allowCustomAnswer when useful
+
+Choose the SINGLE most useful unresolved nutrition question for that food.
+
+Example:
+
+If Pancit Bihon visibly contains meat but the meat type cannot be distinguished:
+
+materialUncertaintyPresent = true
+
+proposedClarification:
+{
+  "question": "What meat is in the Pancit Bihon?",
+  "options": [
+    "Chicken",
+    "Pork",
+    "Mixed",
+    "Not sure"
+  ],
+  "allowCustomAnswer": true
+}
+
+If no concrete nutrition-relevant clarification is needed:
+
+materialUncertaintyPresent = false
+
+and omit proposedClarification.
+
+Do not invent ingredients or uncertainty merely to force a question.
+
+Prepared-drink addition uncertainty is handled by the prepared-drink signals above. Do not duplicate the same uncertainty through proposedClarification unless there is a separate issue.
 `,
         },
       ];
@@ -483,9 +632,14 @@ Associate it with other images only when the connection is reasonably supported.
         parsed
       );
 
-    const result =
+    const withDrinkClarifications =
       enforcePreparedDrinkClarifications(
         parsedResult
+      );
+
+    const result =
+      enforceMaterialUncertaintyClarifications(
+        withDrinkClarifications
       );
 
     return NextResponse.json(

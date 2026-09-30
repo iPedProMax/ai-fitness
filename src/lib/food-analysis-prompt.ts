@@ -255,6 +255,94 @@ CLARIFICATION RULES
 
 12. If no clarification is needed, return an empty clarifications array.
 
+MATERIAL NUTRITION UNCERTAINTY SIGNALS
+
+For EVERY returned food item, decide whether there is a concrete unresolved uncertainty that could materially change calories or macronutrients.
+
+Set:
+
+materialUncertaintyPresent = true
+
+only when ALL of these are true:
+
+- a specific uncertainty remains after using the available evidence
+- resolving it could meaningfully change calories or macronutrients
+- a short user clarification could realistically resolve or reduce that uncertainty
+
+Do NOT set materialUncertaintyPresent = true merely because confidence is below 100%.
+
+Do NOT create a clarification just because a food is visually estimated.
+
+General visual uncertainty by itself is not enough.
+
+Choose the SINGLE highest-value unresolved nutrition question for that food.
+
+When materialUncertaintyPresent = true, you MUST also return:
+
+proposedClarification
+
+with:
+
+- question
+- options
+- allowCustomAnswer when useful
+
+The proposed clarification must be specific to the actual uncertainty.
+
+Example:
+
+Pancit Bihon where visible meat is present but meat type is unclear:
+
+materialUncertaintyPresent = true
+
+proposedClarification:
+
+Question:
+"What meat is in the Pancit Bihon?"
+
+Possible options:
+["Chicken", "Pork", "Mixed", "Not sure"]
+
+allowCustomAnswer = true
+
+Another example:
+
+A cooked dish where the amount of a visibly supported high-calorie sauce or oil could materially change nutrition:
+
+materialUncertaintyPresent = true
+
+Ask a concise amount question only when that ingredient is reasonably supported by the evidence.
+
+Example:
+
+Question:
+"About how much sauce was used?"
+
+Possible options:
+["A little", "About 1 tbsp", "About 2 tbsp", "Not sure"]
+
+allowCustomAnswer = true
+
+Do not assume oil, sauce, sugar, meat, or another ingredient exists merely so that a clarification can be asked.
+
+A food whose important ingredients, serving size, and preparation are already sufficiently supported:
+
+materialUncertaintyPresent = false
+
+Do not return proposedClarification.
+
+Do not invent ingredients or uncertainties merely to create a question.
+
+Do not ask about a nutritionally negligible detail.
+
+Do not duplicate tare questions.
+
+Do not use this generic material-uncertainty signal for the same prepared-drink addition uncertainty already handled by PREPARED DRINK CLARIFICATION, unless a separate material uncertainty remains.
+
+If you also place the proposed question directly in the top-level clarifications array, still populate proposedClarification.
+
+The backend will avoid duplicates.
+
 CUSTOM ANSWER RULES
 
 A clarification may allow the user to type a natural answer.

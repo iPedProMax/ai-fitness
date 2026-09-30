@@ -19,6 +19,22 @@ export const preparationStateSchema =
     "NOT_APPLICABLE",
   ]);
 
+export const proposedClarificationSchema =
+  z.object({
+    question: z
+      .string()
+      .min(1),
+
+    options: z
+      .array(
+        z.string().min(1)
+      )
+      .min(1),
+
+    allowCustomAnswer:
+      z.boolean().optional(),
+  });
+
 export const foodItemSchema =
   z.object({
     name: z
@@ -63,6 +79,12 @@ export const foodItemSchema =
 
     visibleAdditionsFullyAccountedFor:
       z.boolean().optional(),
+
+    materialUncertaintyPresent:
+      z.boolean().optional(),
+
+    proposedClarification:
+      proposedClarificationSchema.optional(),
   });
 
 export const clarificationSchema =
@@ -203,6 +225,37 @@ export const foodAnalysisJsonSchema =
             visibleAdditionsFullyAccountedFor: {
               type: "boolean",
             },
+
+            materialUncertaintyPresent: {
+              type: "boolean",
+            },
+
+            proposedClarification: {
+              type: "object",
+
+              properties: {
+                question: {
+                  type: "string",
+                },
+
+                options: {
+                  type: "array",
+
+                  items: {
+                    type: "string",
+                  },
+                },
+
+                allowCustomAnswer: {
+                  type: "boolean",
+                },
+              },
+
+              required: [
+                "question",
+                "options",
+              ],
+            },
           },
 
           required: [
@@ -213,6 +266,7 @@ export const foodAnalysisJsonSchema =
             "carbs",
             "fat",
             "confidence",
+            "materialUncertaintyPresent",
           ],
         },
       },

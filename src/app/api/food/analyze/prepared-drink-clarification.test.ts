@@ -26,6 +26,30 @@ vi.mock(
 
 import { POST } from "./route";
 
+function makeRequest() {
+  const formData =
+    new FormData();
+
+  formData.append(
+    "images",
+    new File(
+      ["fake-image"],
+      "drink.jpg",
+      {
+        type: "image/jpeg",
+      }
+    )
+  );
+
+  return new Request(
+    "http://localhost/api/food/analyze",
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+}
+
 describe(
   "prepared drink clarification enforcement",
   () => {
@@ -72,44 +96,26 @@ describe(
 
                   visibleAdditionsFullyAccountedFor:
                     false,
+
+                  materialUncertaintyPresent:
+                    false,
                 },
               ],
 
               totalCalories: 32,
 
               notes:
-                "The label covers the base drink, but visible fruit and herb additions are present.",
+                "Visible fruit and herb additions are present.",
 
               clarifications: [],
             }),
         }
       );
 
-      const formData =
-        new FormData();
-
-      formData.append(
-        "images",
-        new File(
-          ["fake-image"],
-          "drink.jpg",
-          {
-            type: "image/jpeg",
-          }
-        )
-      );
-
-      const request =
-        new Request(
-          "http://localhost/api/food/analyze",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
       const response =
-        await POST(request);
+        await POST(
+          makeRequest()
+        );
 
       expect(
         response.status
@@ -124,15 +130,86 @@ describe(
 
       expect(
         result.clarifications[0]
-          .foodIndex
-      ).toBe(0);
-
-      expect(
-        result.clarifications[0]
           .question
           .toLowerCase()
       ).toContain(
         "add anything else"
+      );
+    });
+
+    it("still forces the clarification when Gemini says visible additions are already accounted for", async () => {
+      createInteractionMock.mockResolvedValue(
+        {
+          output_text:
+            JSON.stringify({
+              foods: [
+                {
+                  name:
+                    "Nestea Cleanse Green Tea with Fruit and Herbs",
+
+                  estimatedGrams: 250,
+
+                  calories: 40,
+
+                  protein: 0,
+
+                  carbs: 9,
+
+                  fat: 0,
+
+                  confidence: 0.85,
+
+                  weightSource:
+                    "AI_ESTIMATE",
+
+                  nutritionSource:
+                    "NUTRITION_LABEL",
+
+                  preparationState:
+                    "OPEN_PREPARED",
+
+                  visibleAdditionsPresent:
+                    true,
+
+                  visibleAdditionsFullyAccountedFor:
+                    true,
+
+                  materialUncertaintyPresent:
+                    false,
+                },
+              ],
+
+              totalCalories: 40,
+
+              notes:
+                "The visible fruit and herbs were treated as negligible or already accounted for.",
+
+              clarifications: [],
+            }),
+        }
+      );
+
+      const response =
+        await POST(
+          makeRequest()
+        );
+
+      expect(
+        response.status
+      ).toBe(200);
+
+      const result =
+        await response.json();
+
+      expect(
+        result.clarifications
+      ).toHaveLength(1);
+
+      expect(
+        result.clarifications[0]
+          .question
+      ).toBe(
+        "Did you add anything else to this drink?"
       );
 
       expect(

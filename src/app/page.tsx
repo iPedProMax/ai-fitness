@@ -458,11 +458,7 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            Add up to six photos.
-            Food, labels,
-            packaging and scale
-            photos can all go in
-            the same stack.
+            For best results, scan 1-3 foods or drinks at a time. Add up to 6 photos, including labels, packaging, and scale photos.
           </p>
         </section>
 
