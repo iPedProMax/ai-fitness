@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { createClient } from "@/lib/supabase/server";
 
 import {
   signInWithEmail,
@@ -15,8 +18,17 @@ type LoginPageProps = {
 export default async function LoginPage({
   searchParams,
 }: LoginPageProps) {
-  const params =
-    await searchParams;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/");
+  }
+
+  const params = await searchParams;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
@@ -31,9 +43,7 @@ export default async function LoginPage({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Sign in to continue
-            tracking your meals and
-            progress.
+            Sign in to continue tracking your meals and progress.
           </p>
         </div>
 
@@ -119,8 +129,7 @@ export default async function LoginPage({
         </form>
 
         <p className="mt-6 text-center text-sm text-zinc-400">
-          Don&apos;t have an
-          account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/auth/sign-up"
             className="font-medium text-emerald-400 hover:text-emerald-300"

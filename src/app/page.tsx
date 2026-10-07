@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 
+import { AccountMenu } from "@/components/account-menu";
 import { ClarificationCard } from "@/components/clarification-card";
 import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
@@ -441,9 +442,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-700">
-            P
-          </div>
+          <AccountMenu />
         </div>
       </header>
 

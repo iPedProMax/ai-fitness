@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { createClient } from "@/lib/supabase/server";
 
 import {
   signInWithGoogle,
@@ -14,8 +17,17 @@ type SignUpPageProps = {
 export default async function SignUpPage({
   searchParams,
 }: SignUpPageProps) {
-  const params =
-    await searchParams;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/");
+  }
+
+  const params = await searchParams;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
@@ -30,10 +42,7 @@ export default async function SignUpPage({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Start tracking meals
-            and build your
-            personalized fitness
-            goals.
+            Start tracking meals and build your personalized fitness goals.
           </p>
         </div>
 
