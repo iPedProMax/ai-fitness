@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { AccountMenu } from "@/components/account-menu";
+import { AddMealButton } from "@/components/add-meal-button";
 import { ClarificationCard } from "@/components/clarification-card";
 import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
@@ -994,12 +995,7 @@ export default function Home() {
                       Edit photos
                     </button>
 
-                    <button
-                      type="button"
-                      className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                    >
-                      Add Meal
-                    </button>
+                    {analysis && <AddMealButton analysis={analysis} />}
                   </div>
                 </>
               )}
