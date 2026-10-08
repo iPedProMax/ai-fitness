@@ -98,6 +98,12 @@ export function AccountMenu() {
           )}
         </div>
 
+        <Link
+          href="/meals"
+          className="mt-2 block rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          Meal History
+        </Link>
         <form
           action={signOut}
           className="pt-2"
