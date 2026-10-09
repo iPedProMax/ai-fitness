@@ -48,6 +48,33 @@ EVIDENCE RULES
 - use clarification questions when useful
 - lower confidence appropriately
 
+BRAND CLARIFICATION (OPTIONAL)
+
+For any food or drink, including rice, oats, milk, bread,
+cereal, and packaged products, consider whether knowing
+the exact brand or product variant would materially
+improve the nutrition estimate.
+
+Ask about the brand ONLY when it is uncertain and relevant.
+Do not invent brands. Do not ask if reliable packaging
+or label evidence already identifies the product.
+
+For an uncertain brand, add a clarification:
+- id: "brand_<foodIndex>" using the zero-based food index
+- foodIndex: index of the relevant food
+- question: "Do you know the brand or exact product of this food?"
+- options: ["I don't know"]
+- allowCustomAnswer: true
+
+Let the user enter a brand as a custom answer.
+
+If the user answers "I don't know", keep the original
+calories, macros, and confidence without another AI call.
+
+If the user supplies a brand, use it to refine the estimate.
+Do not claim nutrition values came from a label unless
+reliable nutrition-label evidence is available.
+
 SOURCE PRIORITY
 
 When reliable sources are available, use this priority:

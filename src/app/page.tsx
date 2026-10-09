@@ -9,6 +9,10 @@ import {
 import { AccountMenu } from "@/components/account-menu";
 import { AddMealButton } from "@/components/add-meal-button";
 import { ClarificationCard } from "@/components/clarification-card";
+import {
+  isUnknownBrandAnswer,
+  skipBrandClarification,
+} from "@/lib/brand-clarification";
 import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
@@ -314,6 +318,27 @@ export default function Home() {
       !analysis ||
       refiningClarificationId
     ) {
+      return;
+    }
+
+    if (
+      isUnknownBrandAnswer(
+        clarificationId,
+        answer
+      )
+    ) {
+      setSelectedAnswers((current) => ({
+        ...current,
+        [clarificationId]:
+          "Brand unknown - original estimate kept",
+      }));
+
+      setAnalysis((current) =>
+        current
+          ? skipBrandClarification(current, clarificationId)
+          : current
+      );
+
       return;
     }
 
