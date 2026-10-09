@@ -34,7 +34,7 @@ describe(
       expect(
         source
       ).toContain(
-        "Add up to 6 photos, including labels, packaging, and scale photos."
+        "Add up to 10 photos, including labels, packaging, and scale photos."
       );
     });
   }

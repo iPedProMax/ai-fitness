@@ -120,13 +120,13 @@ describe(
       });
     });
 
-    it("rejects more than six images", async () => {
+    it("rejects more than ten images", async () => {
       const formData =
         new FormData();
 
       for (
         let index = 0;
-        index < 7;
+        index < 11;
         index += 1
       ) {
         formData.append(
@@ -161,7 +161,7 @@ describe(
         await response.json()
       ).toEqual({
         error:
-          "You can analyze up to 6 images at a time.",
+          "You can analyze up to 10 images at a time.",
       });
     });
   }

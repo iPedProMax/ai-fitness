@@ -6,8 +6,9 @@ import {
   useState,
 } from "react";
 
-import { AccountMenu } from "@/components/account-menu";
 import { AddMealButton } from "@/components/add-meal-button";
+import { LogFoodPanel } from "@/components/log-food-panel";
+import { foodEmoji } from "@/lib/food-emoji";
 import { ClarificationCard } from "@/components/clarification-card";
 import {
   isUnknownVarietyAnswer,
@@ -21,7 +22,7 @@ import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
 
-const MAX_IMAGES = 6;
+const MAX_IMAGES = 10;
 
 type ImageThumbnailProps = {
   file: File;
@@ -79,6 +80,7 @@ function ImageThumbnail({
 }
 
 export default function Home() {
+  const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
   const [
     images,
     setImages,
@@ -142,7 +144,7 @@ export default function Home() {
     );
 
   const uploaderRef =
-    useRef<HTMLElement | null>(
+    useRef<HTMLDivElement | null>(
       null
     );
 
@@ -238,7 +240,7 @@ export default function Home() {
       remaining
     ) {
       setImageNotice(
-        "You can attach up to 6 images per analysis."
+        "You can attach up to 10 images per analysis."
       );
     } else {
       setImageNotice(null);
@@ -481,29 +483,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <h1 className="text-xl font-bold">
-              AI{" "}
-              <span className="text-emerald-600">
-                Fitness
-              </span>
-            </h1>
-
-            <p className="text-xs text-slate-400">
-              Food scanner
-            </p>
-          </div>
-
-          <AccountMenu />
-        </div>
-      </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <section className="mb-6">
           <p className="mb-2 text-sm font-medium text-emerald-600">
-            AI Food Scanner
+            Log Food
           </p>
 
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -511,19 +495,25 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            For best results, scan 1-3 foods or drinks at a time. Add up to 6 photos, including labels, packaging, and scale photos.
+            For best results, scan 1-3 foods or drinks at a time. Add up to 10 photos, including labels, packaging, and scale photos.
           </p>
         </section>
 
+        <div className="mb-6 flex max-w-xl gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
+          <button type="button" aria-pressed={entryMode === "photo"} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📷 Photo Scanner</button>
+          <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
+        </div>
+
         <div
+          ref={uploaderRef}
           className={
             analysisStarted
               ? "grid items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
               : "mx-auto max-w-2xl"
           }
         >
+          {entryMode === "photo" ? (
           <section
-            ref={uploaderRef}
             className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-500 sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
@@ -614,7 +604,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    Up to six images.
+                    Up to ten images.
                   </p>
                 </div>
               </div>
@@ -707,6 +697,16 @@ export default function Home() {
             </button>
           </section>
 
+          ) : (
+            <LogFoodPanel onReset={resetAnalysis} onResult={(result) => {
+              setAnalysis(result);
+              setAnalysisStarted(true);
+              setError(null);
+              setRefineError(null);
+              setSelectedAnswers({});
+            }} />
+          )}
+
           {analysisStarted && (
             <section
               ref={resultRef}
@@ -715,7 +715,7 @@ export default function Home() {
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-semibold sm:text-lg">
-                    AI Meal
+                    Meal
                     Analysis
                   </h3>
 
@@ -727,7 +727,7 @@ export default function Home() {
 
                 {analysis && (
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    AI result
+                    {analysis.entryMethod === "MANUAL" ? "User-entered" : "AI result"}
                   </span>
                 )}
               </div>
@@ -752,7 +752,7 @@ export default function Home() {
 
                   <p className="mt-3 font-medium">
                     Analyzing your
-                    photos...
+                    food...
                   </p>
 
                   <p className="mt-1 max-w-xs text-sm text-slate-500">
@@ -768,7 +768,7 @@ export default function Home() {
                     Analysis
                     couldn&apos;t
                     be completed.
-                    Edit the photos
+                    Edit your entry
                     and try again.
                   </p>
                 </div>
@@ -804,9 +804,8 @@ export default function Home() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="font-semibold">
-                                {
-                                  food.name
-                                }
+                                {(analysis.entryMethod === "MANUAL" || analysis.entryMethod === "TEXT_AI") && <span aria-hidden="true" className="mr-2">{foodEmoji(food.name)}</span>}
+                                {food.name}
                               </p>
 
                               <p className="mt-1 text-sm text-slate-500">
@@ -815,14 +814,16 @@ export default function Home() {
                                   ? `Measured: ${food.estimatedGrams.toFixed(
                                       1
                                     )} g`
-                                  : `Estimated: ~${Math.round(
-                                      food.estimatedGrams
-                                    )} g`}
+: (analysis.entryMethod === "MANUAL" || analysis.entryMethod === "TEXT_AI") && food.estimatedGrams === 0
+                                  ? "Weight not provided"
+                                  : analysis.entryMethod === "MANUAL"
+                                    ? `Entered: ${food.estimatedGrams} g`
+                                    : `Estimated: ~${Math.round(food.estimatedGrams)} g`}
                               </p>
                             </div>
 
                             <p className="shrink-0 font-bold text-emerald-600">
-                              ~
+                              {analysis.entryMethod === "MANUAL" ? "" : "~"}
                               {Math.round(
                                 food.calories
                               )}{" "}
@@ -833,37 +834,30 @@ export default function Home() {
                           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
                             <span>
                               Protein{" "}
-                              {food.protein.toFixed(
-                                1
-                              )}
-                              g
+                              {food.unknownMacros?.includes("protein") ? "Unknown" : `${food.protein.toFixed(1)}g`}
                             </span>
 
                             <span>
                               Carbs{" "}
-                              {food.carbs.toFixed(
-                                1
-                              )}
-                              g
+                              {food.unknownMacros?.includes("carbs") ? "Unknown" : `${food.carbs.toFixed(1)}g`}
                             </span>
 
                             <span>
                               Fat{" "}
-                              {food.fat.toFixed(
-                                1
-                              )}
-                              g
+                              {food.unknownMacros?.includes("fat") ? "Unknown" : `${food.fat.toFixed(1)}g`}
                             </span>
 
-                            <span>
+                            {analysis.entryMethod !== "MANUAL" && analysis.entryMethod !== "TEXT_AI" && <span>
                               Confidence{" "}
                               {Math.round(
                                 food.confidence *
                                   100
                               )}
                               %
-                            </span>
+                            </span>}
 
+                            {analysis.entryMethod === "MANUAL" && <span>Nutrition: User-entered</span>}
+                            {analysis.entryMethod === "TEXT_AI" && <span>Nutrition: AI-assisted, reviewed by user</span>}
                             {food.nutritionSource && (
                               <span>
                                 Nutrition:{" "}
@@ -895,7 +889,7 @@ export default function Home() {
                     </p>
 
                     <p className="mt-1 text-3xl font-bold">
-                      ~
+                      {analysis.entryMethod === "MANUAL" ? "" : "~"}
                       {Math.round(
                         analysis.totalCalories
                       )}{" "}
@@ -909,10 +903,9 @@ export default function Home() {
                         </p>
 
                         <p className="font-semibold">
-                          {totalProtein.toFixed(
-                            1
-                          )}
-                          g
+                          {foods.some((food) => food.unknownMacros?.includes("protein"))
+                            ? "Unknown"
+                            : `${totalProtein.toFixed(1)}g`}
                         </p>
                       </div>
 
@@ -922,10 +915,9 @@ export default function Home() {
                         </p>
 
                         <p className="font-semibold">
-                          {totalCarbs.toFixed(
-                            1
-                          )}
-                          g
+                          {foods.some((food) => food.unknownMacros?.includes("carbs"))
+                            ? "Unknown"
+                            : `${totalCarbs.toFixed(1)}g`}
                         </p>
                       </div>
 
@@ -935,10 +927,9 @@ export default function Home() {
                         </p>
 
                         <p className="font-semibold">
-                          {totalFat.toFixed(
-                            1
-                          )}
-                          g
+                          {foods.some((food) => food.unknownMacros?.includes("fat"))
+                            ? "Unknown"
+                            : `${totalFat.toFixed(1)}g`}
                         </p>
                       </div>
                     </div>
@@ -1019,7 +1010,7 @@ export default function Home() {
                   {analysis.notes && (
                     <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        AI notes
+                        {analysis.entryMethod === "MANUAL" ? "Entry notes" : "AI notes"}
                       </p>
 
                       <p className="mt-1 text-sm leading-6 text-amber-900">
@@ -1045,7 +1036,7 @@ export default function Home() {
                       }
                       className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold transition hover:bg-slate-50"
                     >
-                      Edit photos
+                      {entryMode === "photo" ? "Edit photos" : "Edit entry"}
                     </button>
 
                     {analysis && <AddMealButton analysis={analysis} />}

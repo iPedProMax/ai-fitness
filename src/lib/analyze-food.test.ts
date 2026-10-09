@@ -142,10 +142,10 @@ describe("analyzeFood", () => {
     );
   });
 
-  it("rejects more than six images", async () => {
+  it("rejects more than ten images", async () => {
     const images =
       Array.from(
-        { length: 7 },
+        { length: 11 },
         (_, index) =>
           new File(
             ["image"],
@@ -161,7 +161,7 @@ describe("analyzeFood", () => {
         images,
       })
     ).rejects.toThrow(
-      "You can analyze up to 6 images at a time."
+      "You can analyze up to 10 images at a time."
     );
   });
 });

@@ -1,4 +1,5 @@
 "use server";
+import { normalizeConsumedAt } from "../../lib/meal-time";
 
 import {
   foodAnalysisSchema,
@@ -18,12 +19,14 @@ export type SaveMealResult =
       code:
         | "UNAUTHENTICATED"
         | "INVALID_ANALYSIS"
+        | "INVALID_MEAL_TIME"
         | "SAVE_FAILED";
       message: string;
     };
 
 export async function saveMeal(
-  input: unknown
+  input: unknown,
+  consumedAt?: string
 ): Promise<SaveMealResult> {
   const supabase =
     await createClient();
@@ -56,6 +59,18 @@ export async function saveMeal(
     };
   }
 
+  const normalizedConsumedAt =
+    normalizeConsumedAt(consumedAt);
+
+  if (normalizedConsumedAt === null) {
+    return {
+      ok: false,
+      code: "INVALID_MEAL_TIME",
+      message:
+        "Please choose a valid meal date and time that is not in the future.",
+    };
+  }
+
   const analysis = parsed.data;
 
   const totals =
@@ -84,6 +99,7 @@ export async function saveMeal(
   } = await supabase
     .from("meals")
     .insert({
+      ...(normalizedConsumedAt ? { consumed_at: normalizedConsumedAt } : {}),
       user_id: user.id,
       total_calories:
         analysis.totalCalories,

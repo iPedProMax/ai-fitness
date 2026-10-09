@@ -1,7 +1,9 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { foodEmoji } from "@/lib/food-emoji";
+import { EditMealTime } from "@/components/edit-meal-time";
 
 type MealItem = {
   id: string;
@@ -13,6 +15,8 @@ type MealItem = {
 type SavedMeal = {
   id: string;
   created_at: string;
+  analysis_snapshot?: { entryMethod?: string; foods?: Array<{ unknownMacros?: ("protein" | "carbs" | "fat")[] }> } | null;
+  consumed_at: string | null;
   total_calories: number;
   total_protein: number;
   total_carbs: number;
@@ -25,13 +29,6 @@ function formatNumber(value: number) {
   return Math.round(Number(value));
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Manila",
-  }).format(new Date(value));
-}
 
 export default async function MealsPage() {
   const supabase = await createClient();
@@ -53,6 +50,8 @@ export default async function MealsPage() {
     .select(`
       id,
       created_at,
+      consumed_at,
+      analysis_snapshot,
       total_calories,
       total_protein,
       total_carbs,
@@ -65,7 +64,7 @@ export default async function MealsPage() {
         calories
       )
     `)
-    .order("created_at", { ascending: false });
+    .order("consumed_at", { ascending: false });
 
   // Supabase RLS restricts results to the signed-in owner.
   const meals = (data ?? []) as unknown as SavedMeal[];
@@ -118,12 +117,11 @@ export default async function MealsPage() {
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <time
-                      dateTime={meal.created_at}
-                      className="text-sm text-slate-500"
-                    >
-                      {formatDate(meal.created_at)}
-                    </time>
+                    <EditMealTime
+                      mealId={meal.id}
+                      consumedAt={meal.consumed_at ?? meal.created_at}
+                      createdAt={meal.created_at}
+                    />
                     <h2 className="mt-2 text-2xl font-bold text-emerald-700">
                       {formatNumber(meal.total_calories)} kcal
                     </h2>
@@ -147,7 +145,9 @@ export default async function MealsPage() {
                         {label}
                       </p>
                       <p className="mt-1 font-semibold">
-                        {formatNumber(Number(value))} g
+                        {meal.analysis_snapshot?.foods?.some((food) =>
+                          food.unknownMacros?.includes(String(label).toLowerCase() as "protein" | "carbs" | "fat")
+                        ) ? "Unknown" : `${formatNumber(Number(value))} g`}
                       </p>
                     </div>
                   ))}
@@ -167,10 +167,15 @@ export default async function MealsPage() {
                         >
                           <div>
                             <p className="font-medium">
+                              {(meal.analysis_snapshot?.entryMethod === "MANUAL" || meal.analysis_snapshot?.entryMethod === "TEXT_AI") && (
+                                <span aria-hidden="true" className="mr-2">{foodEmoji(item.name)}</span>
+                              )}
                               {item.name}
                             </p>
                             <p className="text-xs text-slate-500">
-                              Approx. {formatNumber(item.estimated_grams)} g
+                              {(meal.analysis_snapshot?.entryMethod === "MANUAL" || meal.analysis_snapshot?.entryMethod === "TEXT_AI") && item.estimated_grams === 0
+                                ? "Weight not provided"
+                                : `Approx. ${formatNumber(item.estimated_grams)} g`}
                             </p>
                           </div>
                           <span className="font-semibold">

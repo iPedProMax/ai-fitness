@@ -1,4 +1,4 @@
-﻿import { readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -55,6 +55,9 @@ vi.mock("../../lib/supabase/server", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
+  useRouter: () => ({
+    refresh: vi.fn(),
+  }),
 }));
 
 import MealsPage from "./page";
@@ -102,7 +105,7 @@ describe("Meal History page", () => {
     expect(fromMock).toHaveBeenCalledWith("meals");
 
     expect(orderMock).toHaveBeenCalledWith(
-      "created_at",
+      "consumed_at",
       { ascending: false }
     );
   });
@@ -144,6 +147,42 @@ describe("Meal History page", () => {
     );
   });
 
+  it("shows eating and logging timestamps separately", async () => {
+    orderMock.mockResolvedValue({
+      data: [
+        {
+          id: "123e4567-e89b-42d3-a456-426614174000",
+          consumed_at: "2026-10-08T11:00:00.000Z",
+          created_at: "2026-10-09T11:00:00.000Z",
+          total_calories: 260,
+          total_protein: 5,
+          total_carbs: 57,
+          total_fat: 1,
+          notes: "",
+          meal_items: [],
+        },
+      ],
+      error: null,
+    });
+
+    const html = renderToStaticMarkup(
+      await MealsPage()
+    );
+
+    expect(html).toContain("Eaten at");
+    expect(html).toContain("Logged at");
+    expect(html).toContain("Edit eating time");
+    expect(html).toContain(
+      "2026-10-08T11:00:00.000Z"
+    );
+    expect(html).toContain(
+      "2026-10-09T11:00:00.000Z"
+    );
+    expect(selectMock).toHaveBeenCalledWith(
+      expect.stringContaining("consumed_at")
+    );
+  });
+
   it("shows database errors instead of an empty state", async () => {
     orderMock.mockResolvedValue({
       data: null,
@@ -158,7 +197,7 @@ describe("Meal History page", () => {
     expect(html).not.toContain("No meals saved yet");
   });
 
-  it("includes Meal History in the account menu", () => {
+  it("keeps Meal History in the sidebar instead of the account menu", () => {
     const menu = readFileSync(
       new URL(
         "../../components/account-menu.tsx",
@@ -167,6 +206,12 @@ describe("Meal History page", () => {
       "utf8"
     );
 
-    expect(menu).toContain('href="/meals"');
+    const shell = readFileSync(
+      new URL("../../components/app-shell.tsx", import.meta.url),
+      "utf8"
+    );
+
+    expect(menu).not.toContain('href="/meals"');
+    expect(shell).toContain('href: "/meals"');
   });
 });

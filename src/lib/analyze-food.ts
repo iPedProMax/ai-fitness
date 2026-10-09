@@ -7,7 +7,7 @@ export type FoodAnalysisInput = {
   images: File[];
 };
 
-const MAX_IMAGES = 6;
+const MAX_IMAGES = 10;
 
 export async function analyzeFood(
   input: File | File[] | FoodAnalysisInput

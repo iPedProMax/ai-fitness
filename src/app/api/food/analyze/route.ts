@@ -27,7 +27,7 @@ const allowedImageTypes = [
 const MAX_IMAGE_SIZE =
   10 * 1024 * 1024;
 
-const MAX_IMAGES = 6;
+const MAX_IMAGES = 10;
 
 type SupportedMimeType =
   | "image/jpeg"
