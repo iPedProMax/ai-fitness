@@ -59,6 +59,13 @@ export const foodItemSchema =
     confidence:
       z.number().min(0).max(1),
 
+    brandStatus:
+      z.enum([
+        "KNOWN",
+        "UNKNOWN_RELEVANT",
+        "NOT_RELEVANT",
+      ]).optional(),
+
     weightSource:
       weightSourceSchema.optional(),
 
@@ -185,6 +192,15 @@ export const foodAnalysisJsonSchema =
               maximum: 1,
             },
 
+            brandStatus: {
+              type: "string",
+              enum: [
+                "KNOWN",
+                "UNKNOWN_RELEVANT",
+                "NOT_RELEVANT",
+              ],
+            },
+
             weightSource: {
               type: "string",
 
@@ -266,6 +282,7 @@ export const foodAnalysisJsonSchema =
             "carbs",
             "fat",
             "confidence",
+            "brandStatus",
             "materialUncertaintyPresent",
           ],
         },

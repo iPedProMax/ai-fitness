@@ -50,30 +50,45 @@ EVIDENCE RULES
 
 BRAND CLARIFICATION (OPTIONAL)
 
-For any food or drink, including rice, oats, milk, bread,
-cereal, and packaged products, consider whether knowing
-the exact brand or product variant would materially
-improve the nutrition estimate.
+For EVERY detected food or drink, return a brandStatus value:
 
-Ask about the brand ONLY when it is uncertain and relevant.
-Do not invent brands. Do not ask if reliable packaging
-or label evidence already identifies the product.
+"KNOWN"
+- The exact brand or product is reliably identifiable from evidence,
+  such as visible packaging or a readable product label.
+- Do not claim a brand is known from appearance alone.
+- Do not ask for the brand again.
 
-For an uncertain brand, add a clarification:
-- id: "brand_<foodIndex>" using the zero-based food index
-- foodIndex: index of the relevant food
-- question: "Do you know the brand or exact product of this food?"
+"UNKNOWN_RELEVANT"
+- The exact brand or product variant is uncertain.
+- Knowing it could materially improve the nutrition estimate.
+- This can apply to oats, cereals, milk, bread, rice products,
+  packaged drinks, biscuits, and other foods.
+- Ask an optional brand question.
+
+"NOT_RELEVANT"
+- The brand is unnecessary or unlikely to meaningfully improve
+  the nutrition estimate.
+- For example, ordinary cooked white rice may not need the
+  exact commercial brand to estimate calories.
+- Do not ask an unnecessary brand question.
+
+When brandStatus is "UNKNOWN_RELEVANT", generate a clarification:
+- id: "brand_<foodIndex>" using the zero-based foods array index
+- foodIndex: the corresponding food index
+- question: "Do you know the brand or exact product of [food name]?"
 - options: ["I don't know"]
 - allowCustomAnswer: true
 
-Let the user enter a brand as a custom answer.
+The user can type the brand or exact product as a custom answer.
 
-If the user answers "I don't know", keep the original
-calories, macros, and confidence without another AI call.
+If the user does not know the brand, retain the existing estimate.
+No additional AI request is required for "I don't know".
 
-If the user supplies a brand, use it to refine the estimate.
-Do not claim nutrition values came from a label unless
-reliable nutrition-label evidence is available.
+If the user supplies a brand, use it as additional information.
+A brand name alone does not verify exact nutrition values.
+Never claim NUTRITION_LABEL without reliable label evidence.
+
+Avoid generating duplicate brand questions.
 
 SOURCE PRIORITY
 

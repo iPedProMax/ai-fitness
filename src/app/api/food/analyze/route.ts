@@ -8,6 +8,12 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
+import {
+  normalizeScaleClarifications,
+} from "../../../../lib/scale-clarification";
+import {
+  enforceBrandClarifications,
+} from "../../../../lib/brand-clarification";
 
 const allowedImageTypes = [
   "image/jpeg",
@@ -632,14 +638,22 @@ Associate it with other images only when the connection is reasonably supported.
         parsed
       );
 
+    const withScaleClarifications =
+      normalizeScaleClarifications(parsedResult);
+
     const withDrinkClarifications =
       enforcePreparedDrinkClarifications(
-        parsedResult
+        withScaleClarifications
+      );
+
+    const withUncertaintyClarifications =
+      enforceMaterialUncertaintyClarifications(
+        withDrinkClarifications
       );
 
     const result =
-      enforceMaterialUncertaintyClarifications(
-        withDrinkClarifications
+      enforceBrandClarifications(
+        withUncertaintyClarifications
       );
 
     return NextResponse.json(
