@@ -66,6 +66,13 @@ export const foodItemSchema =
         "NOT_RELEVANT",
       ]).optional(),
 
+    varietyStatus:
+      z.enum([
+        "KNOWN",
+        "UNKNOWN_RELEVANT",
+        "NOT_RELEVANT",
+      ]).optional(),
+
     weightSource:
       weightSourceSchema.optional(),
 
@@ -201,6 +208,15 @@ export const foodAnalysisJsonSchema =
               ],
             },
 
+            varietyStatus: {
+              type: "string",
+              enum: [
+                "KNOWN",
+                "UNKNOWN_RELEVANT",
+                "NOT_RELEVANT",
+              ],
+            },
+
             weightSource: {
               type: "string",
 
@@ -283,6 +299,7 @@ export const foodAnalysisJsonSchema =
             "fat",
             "confidence",
             "brandStatus",
+            "varietyStatus",
             "materialUncertaintyPresent",
           ],
         },

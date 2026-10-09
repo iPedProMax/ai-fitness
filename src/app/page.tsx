@@ -10,6 +10,10 @@ import { AccountMenu } from "@/components/account-menu";
 import { AddMealButton } from "@/components/add-meal-button";
 import { ClarificationCard } from "@/components/clarification-card";
 import {
+  isUnknownVarietyAnswer,
+  skipVarietyClarification,
+} from "@/lib/variety-clarification";
+import {
   isUnknownBrandAnswer,
   skipBrandClarification,
 } from "@/lib/brand-clarification";
@@ -318,6 +322,30 @@ export default function Home() {
       !analysis ||
       refiningClarificationId
     ) {
+      return;
+    }
+
+    if (
+      isUnknownVarietyAnswer(
+        clarificationId,
+        answer
+      )
+    ) {
+      setSelectedAnswers((current) => ({
+        ...current,
+        [clarificationId]:
+          "Variety unknown - original estimate kept",
+      }));
+
+      setAnalysis((current) =>
+        current
+          ? skipVarietyClarification(
+              current,
+              clarificationId
+            )
+          : current
+      );
+
       return;
     }
 

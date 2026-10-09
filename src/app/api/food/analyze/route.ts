@@ -9,6 +9,9 @@ import {
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import {
+  enforceVarietyClarifications,
+} from "../../../../lib/variety-clarification";
+import {
   normalizeScaleClarifications,
 } from "../../../../lib/scale-clarification";
 import {
@@ -651,9 +654,14 @@ Associate it with other images only when the connection is reasonably supported.
         withDrinkClarifications
       );
 
-    const result =
+    const withBrandClarifications =
       enforceBrandClarifications(
         withUncertaintyClarifications
+      );
+
+    const result =
+      enforceVarietyClarifications(
+        withBrandClarifications
       );
 
     return NextResponse.json(

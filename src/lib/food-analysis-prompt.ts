@@ -90,6 +90,69 @@ Never claim NUTRITION_LABEL without reliable label evidence.
 
 Avoid generating duplicate brand questions.
 
+FOOD VARIETY CLARIFICATION
+
+For EVERY food or drink, return varietyStatus:
+
+"KNOWN"
+- The specific food type or variety is reliably identified.
+- Do not ask the user again.
+
+"UNKNOWN_RELEVANT"
+- The variety is uncertain.
+- Knowing it could meaningfully improve calories,
+  macronutrients, or serving interpretation.
+- An optional clarification should be generated.
+
+"NOT_RELEVANT"
+- Knowing the variety is unlikely to make a meaningful
+  difference to this nutrition estimate.
+- Do not ask unnecessarily.
+
+Examples to consider:
+
+RICE
+- Cooked white rice, jasmine, basmati, brown,
+  Dinorado, Sinandomeng, and glutinous rice can
+  differ in nutrition and water absorption.
+- When the variety is unclear and that distinction
+  may affect the nutrition estimate, use UNKNOWN_RELEVANT.
+- Do not invent the rice variety from appearance.
+
+OATS
+- Rolled, instant, and steel-cut oats differ in
+  processing and sometimes serving interpretation.
+- If the type is not reliably visible and knowing
+  it could improve the estimate, use UNKNOWN_RELEVANT.
+
+OTHER FOODS
+- Consider meaningful varieties of milk, bread,
+  cereals, cheese, noodles, potatoes, and other foods.
+- Do not add unnecessary questions for negligible
+  differences.
+
+Variety is DIFFERENT from brand.
+
+Brand questions identify a manufacturer or exact product.
+Variety questions identify the food type or preparation.
+
+Do not confuse a brand with a variety.
+
+When varietyStatus is UNKNOWN_RELEVANT:
+- Create or allow one optional variety question.
+- The backend will normalize its id to
+  "variety_<foodIndex>".
+- The user must be able to answer "I don't know".
+- Custom variety answers must be permitted.
+
+If the user does not know:
+- Keep the original estimate.
+- Do not require another AI request.
+
+If the user identifies the variety:
+- Refine the estimate using that information.
+- Do not invent verified nutrition-label values.
+
 SOURCE PRIORITY
 
 When reliable sources are available, use this priority:
