@@ -1,3 +1,4 @@
+import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
@@ -6,6 +7,9 @@ import { enforceVarietyClarifications } from "@/lib/variety-clarification";
 import { validateFoodText } from "@/lib/food-text-input";
 
 export async function POST(request: Request) {
+  const authError = await requireFoodApiAuth();
+  if (authError) return authError;
+
   let body: unknown;
   try {
     body = await request.json();

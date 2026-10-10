@@ -1,3 +1,7 @@
+import { vi } from "vitest";
+vi.mock("@/lib/food-api-auth", () => ({
+  requireFoodApiAuth: async () => null,
+}));
 import {
   describe,
   expect,

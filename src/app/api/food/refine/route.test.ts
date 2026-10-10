@@ -1,3 +1,6 @@
+vi.mock("@/lib/food-api-auth", () => ({
+  requireFoodApiAuth: async () => null,
+}));
 import {
     beforeEach,
     describe,

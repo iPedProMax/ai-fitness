@@ -1,3 +1,4 @@
+import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -185,6 +186,9 @@ function combineNotes(
 export async function POST(
   request: Request
 ) {
+  const authError = await requireFoodApiAuth();
+  if (authError) return authError;
+
   try {
     const body =
       await request.json();
