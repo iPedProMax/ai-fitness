@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isProtectedAppPage } from "./protected-app-page";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -46,7 +47,27 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getClaims();
+  // Refresh/check the session; deny access to protected pages when no valid JWT is present.
+  // Authentication forms and callback routes remain public.
+  let isAuthenticated = false;
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    isAuthenticated = !error && Boolean(data?.claims);
+  } catch {
+    // Fail closed on protected pages, while leaving public auth pages usable.
+  }
+
+  if (isProtectedAppPage(request.nextUrl.pathname) && !isAuthenticated) {
+    const loginUrl = new URL("/auth/login", request.url);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+
+    // Keep any cookies set while refreshing the Supabase session.
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+
+    return redirectResponse;
+  }
 
   return supabaseResponse;
 }
