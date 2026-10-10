@@ -9,7 +9,9 @@ export function CheckEmailModal() {
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
+    if (!dialog) return;
+    if (dialog.open) dialog.removeAttribute("open");
+    dialog.showModal();
   }, []);
 
   function closeModal() {
@@ -19,6 +21,7 @@ export function CheckEmailModal() {
 
   return (
     <dialog
+      open
       ref={dialogRef}
       aria-labelledby="check-email-title"
       aria-describedby="check-email-description"
