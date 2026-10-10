@@ -52,6 +52,6 @@ describe("AI Fitness application shell", () => {
   it("provides scanner and meal-history quick actions", () => {
     expect(dashboard).toContain('href="/"');
     expect(dashboard).toContain('href="/meals"');
-    expect(dashboard).toContain("Daily summary coming soon");
+    expect(dashboard).toContain("<TodayOverview />");
   });
 });

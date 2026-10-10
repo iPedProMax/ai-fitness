@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { TodayOverview } from "@/components/today-overview";
+import { DashboardSpotlight } from "@/components/dashboard-spotlight";
 
 export default function DashboardPage() {
   return (
     <main className="bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
-        <section className="relative overflow-hidden rounded-3xl bg-slate-900 px-6 py-8 text-white sm:px-10 sm:py-10">
+        <DashboardSpotlight>
           <div className="relative z-10 max-w-2xl">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">
               Welcome to your dashboard
@@ -36,68 +38,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full bg-emerald-500/15 blur-3xl"
-          />
-        </section>
+        </DashboardSpotlight>
 
-        <section className="mt-9">
-          <div className="mb-5">
-            <h2 className="text-xl font-bold">
-              Today&apos;s overview
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Daily totals will appear here when dashboard
-              tracking is connected to your saved meals.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">
-                Calories consumed
-              </p>
-
-              <p className="mt-4 text-3xl font-extrabold text-slate-900">
-                — kcal
-              </p>
-
-              <p className="mt-3 text-xs text-slate-400">
-                Daily summary coming soon
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">
-                Protein consumed
-              </p>
-
-              <p className="mt-4 text-3xl font-extrabold text-slate-900">
-                — g
-              </p>
-
-              <p className="mt-3 text-xs text-slate-400">
-                Nutrition tracking coming soon
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">
-                Activity
-              </p>
-
-              <p className="mt-4 text-3xl font-extrabold text-slate-900">
-                —
-              </p>
-
-              <p className="mt-3 text-xs text-slate-400">
-                Exercise tracking coming soon
-              </p>
-            </div>
-          </div>
-        </section>
+        <TodayOverview />
 
         <section className="mt-9 grid gap-5 lg:grid-cols-2">
           <Link
@@ -109,16 +52,16 @@ export default function DashboardPage() {
             </div>
 
             <h2 className="text-lg font-bold">
-              AI Food Scanner
+              Log Food
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Upload food photos to estimate calories,
-              macronutrients, and portion sizes.
+              Scan photos, describe food to AI, or enter
+              your own nutrition values.
             </p>
 
             <p className="mt-5 text-sm font-bold text-emerald-700">
-              Open scanner →
+              Log a meal →
             </p>
           </Link>
 
