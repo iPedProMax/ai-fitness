@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CheckEmailModal } from "@/components/check-email-modal";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -32,6 +33,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
+      {params.message === "Account created. Check your email if confirmation is required, then sign in." && <CheckEmailModal />}
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8 shadow-2xl">
         <div className="mb-8">
           <p className="mb-2 text-sm font-medium text-emerald-400">
