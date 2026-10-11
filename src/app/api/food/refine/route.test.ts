@@ -1,3 +1,6 @@
+vi.mock("@/lib/ai-usage", () => ({
+  reserveAiUsage: async () => null,
+}));
 vi.mock("@/lib/food-api-auth", () => ({
   requireFoodApiAuth: async () => null,
 }));

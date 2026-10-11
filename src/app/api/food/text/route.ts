@@ -1,4 +1,5 @@
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
+import { reserveAiUsage } from "@/lib/ai-usage";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
   }
   try {
+    const quotaError = await reserveAiUsage("analysis");
+    if (quotaError) return quotaError;
+
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.interactions.create({
       model: "gemini-3.5-flash-lite",

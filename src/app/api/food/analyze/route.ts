@@ -1,4 +1,5 @@
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
+import { reserveAiUsage } from "@/lib/ai-usage";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
@@ -421,6 +422,9 @@ export async function POST(
         }
       );
     }
+
+    const quotaError = await reserveAiUsage("analysis");
+    if (quotaError) return quotaError;
 
     const ai =
       new GoogleGenAI({

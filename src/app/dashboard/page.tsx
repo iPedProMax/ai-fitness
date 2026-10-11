@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TodayOverview } from "@/components/today-overview";
 import { DashboardSpotlight } from "@/components/dashboard-spotlight";
+import { AiUsageCounter } from "@/components/ai-usage-counter";
 
 export default function DashboardPage() {
   return (
@@ -39,6 +40,8 @@ export default function DashboardPage() {
           </div>
 
         </DashboardSpotlight>
+
+        <AiUsageCounter />
 
         <TodayOverview />
 
