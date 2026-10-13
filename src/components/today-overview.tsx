@@ -12,11 +12,16 @@ import {
   type DailyMealRecord,
 } from "@/lib/daily-nutrition";
 
+type ExerciseBurnState =
+  | { status: "hidden" }
+  | { status: "ready"; calories: number; logs: number }
+  | { status: "error" };
+
 type DashboardState =
   | { status: "loading" }
   | { status: "guest" }
   | { status: "error" }
-  | { status: "ready"; summary: DailyNutritionSummary; dateLabel: string };
+  | { status: "ready"; summary: DailyNutritionSummary; dateLabel: string; exercise: ExerciseBurnState };
 
 export function TodayOverview() {
   const [state, setState] = useState<DashboardState>({ status: "loading" });
@@ -62,10 +67,42 @@ export function TodayOverview() {
           return;
         }
 
+        let exercise: ExerciseBurnState = { status: "hidden" };
+        const preferenceResult = await supabase.from("user_preferences")
+          .select("show_exercise_calories")
+          .eq("user_id", authData.user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (preferenceResult.error) {
+          exercise = { status: "error" };
+        } else if (preferenceResult.data?.show_exercise_calories === true) {
+          const activityResult = await supabase.from("activities")
+            .select("calories_burned")
+            .eq("user_id", authData.user.id)
+            .gte("performed_at", today.start)
+            .lt("performed_at", today.end)
+            .limit(500);
+          if (cancelled) return;
+          if (activityResult.error) {
+            exercise = { status: "error" };
+          } else {
+            const values = activityResult.data ?? [];
+            exercise = {
+              status: "ready",
+              logs: values.length,
+              calories: values.reduce((sum, item) => {
+                const value = Number(item.calories_burned);
+                return sum + (item.calories_burned !== null && Number.isFinite(value) && value >= 0 ? value : 0);
+              }, 0),
+            };
+          }
+        }
+
         setState({
           status: "ready",
           dateLabel: today.label,
           summary: summarizeDailyNutrition((data ?? []) as DailyMealRecord[]),
+          exercise,
         });
       } catch {
         if (!cancelled) setState({ status: "error" });
@@ -174,6 +211,17 @@ export function TodayOverview() {
           </div>
         ))}
       </div>
+
+      {state.status === "ready" && state.exercise.status === "ready" && (
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-slate-700">Exercise calories (optional)</p>
+          <p className="mt-2 text-2xl font-extrabold text-slate-900">{Math.round(state.exercise.calories).toLocaleString()} kcal</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Based on up to 500 saved workouts for {selectedLabel}. Estimates may include resting energy and are not subtracted from food calories or added to any target. <Link href="/settings" className="font-semibold text-emerald-700 hover:underline">Change display settings</Link>.</p>
+        </div>
+      )}
+      {state.status === "ready" && state.exercise.status === "error" && (
+        <p role="alert" className="mt-3 text-xs text-red-700">Exercise display preferences or activity totals could not be loaded. Your food totals are unaffected.</p>
+      )}
 
       {summary && [summary.protein, summary.carbs, summary.fat].some((macro) => macro.incomplete) && (
         <p className="mt-3 text-xs leading-5 text-slate-500">

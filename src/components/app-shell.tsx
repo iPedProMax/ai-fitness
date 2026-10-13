@@ -43,10 +43,12 @@ const navItems: NavItem[] = [
   },
   {
     label: "Activities",
+    href: "/activities",
     icon: "activities",
   },
   {
     label: "Settings",
+    href: "/settings",
     icon: "settings",
   },
 ];
@@ -174,7 +176,9 @@ export function AppShell({
   const isAppRoute =
     pathname === "/" ||
     pathname === "/dashboard" ||
-    pathname === "/meals";
+    pathname === "/meals" ||
+    pathname === "/activities" ||
+    pathname === "/settings";
 
   // Login, sign-up and authentication callbacks
   // keep their original pages without the sidebar.
@@ -187,7 +191,11 @@ export function AppShell({
       ? "Dashboard"
       : pathname === "/meals"
         ? "Meal History"
-        : "Log Food";
+        : pathname === "/activities"
+          ? "Activities"
+          : pathname === "/settings"
+            ? "Settings"
+            : "Log Food";
 
   return (
     <div className="min-h-screen w-full bg-slate-50 text-slate-900">
