@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isProtectedAppPage } from "./protected-app-page";
 
 describe("account-only page routes", () => {
-  it.each(["/", "/dashboard", "/dashboard/", "/meals", "/meals/1", "/activities", "/activities/history", "/settings", "/settings/preferences"])(
+  it.each(["/", "/dashboard", "/dashboard/", "/meals", "/meals/1", "/activities", "/activities/history", "/goals", "/goals/history", "/reports", "/reports/week", "/settings", "/settings/preferences"])(
     "requires authentication for %s",
     (pathname) => {
       expect(isProtectedAppPage(pathname)).toBe(true);

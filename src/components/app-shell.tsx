@@ -39,6 +39,12 @@ const navItems: NavItem[] = [
   },
   {
     label: "Daily Reports",
+    href: "/reports",
+    icon: "reports",
+  },
+  {
+    label: "Goals",
+    href: "/goals",
     icon: "reports",
   },
   {
@@ -178,6 +184,8 @@ export function AppShell({
     pathname === "/dashboard" ||
     pathname === "/meals" ||
     pathname === "/activities" ||
+    pathname === "/reports" ||
+    pathname === "/goals" ||
     pathname === "/settings";
 
   // Login, sign-up and authentication callbacks
@@ -193,6 +201,10 @@ export function AppShell({
         ? "Meal History"
         : pathname === "/activities"
           ? "Activities"
+          : pathname === "/reports"
+            ? "Daily Reports"
+            : pathname === "/goals"
+              ? "Personal Goals"
           : pathname === "/settings"
             ? "Settings"
             : "Log Food";

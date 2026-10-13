@@ -103,6 +103,10 @@ export default function DashboardPage() {
             <p className="mt-5 text-sm font-bold text-emerald-700">Log an activity →</p>
           </Link>
         </section>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/goals" className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50">Set personal goals →</Link>
+          <Link href="/reports" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100">View daily reports →</Link>
+        </div>
       </div>
     </main>
   );

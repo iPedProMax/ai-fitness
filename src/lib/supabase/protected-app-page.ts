@@ -8,6 +8,10 @@ export function isProtectedAppPage(pathname: string): boolean {
     pathname.startsWith("/meals/") ||
     pathname === "/activities" ||
     pathname.startsWith("/activities/") ||
+    pathname === "/goals" ||
+    pathname.startsWith("/goals/") ||
+    pathname === "/reports" ||
+    pathname.startsWith("/reports/") ||
     pathname === "/settings" ||
     pathname.startsWith("/settings/")
   );

@@ -32,8 +32,9 @@ export default async function SettingsPage() {
         )}
 
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-          <h2 className="font-bold text-slate-900">Calorie targets</h2>
-          <p className="mt-2 leading-6">Exercise does not increase your food calorie budget automatically. Optional goal-based adjustments will come later, when we add personal fitness goals.</p>
+          <h2 className="font-bold text-slate-900">Personal nutrition goals</h2>
+          <p className="mt-2 leading-6">Set your own daily calorie and protein goals. Exercise won't automatically increase your food budget.</p>
+          <Link href="/goals" className="mt-3 inline-block font-semibold text-emerald-700 hover:underline">Manage my goals →</Link>
         </section>
       </div>
     </main>

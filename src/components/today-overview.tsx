@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { targetProgress } from "@/lib/fitness-goals";
 import {
   displayMacro,
   localDayWindow,
@@ -11,6 +12,11 @@ import {
   type DailyNutritionSummary,
   type DailyMealRecord,
 } from "@/lib/daily-nutrition";
+
+type GoalStatus =
+  | { status: "unset" }
+  | { status: "error" }
+  | { status: "ready"; calories: number; protein: number };
 
 type ExerciseBurnState =
   | { status: "hidden" }
@@ -21,7 +27,7 @@ type DashboardState =
   | { status: "loading" }
   | { status: "guest" }
   | { status: "error" }
-  | { status: "ready"; summary: DailyNutritionSummary; dateLabel: string; exercise: ExerciseBurnState };
+  | { status: "ready"; summary: DailyNutritionSummary; dateLabel: string; exercise: ExerciseBurnState; goals: GoalStatus };
 
 export function TodayOverview() {
   const [state, setState] = useState<DashboardState>({ status: "loading" });
@@ -67,6 +73,17 @@ export function TodayOverview() {
           return;
         }
 
+        let goals: GoalStatus = { status: "unset" };
+        const goalResult = await supabase.from("fitness_goals")
+          .select("calorie_target,protein_target")
+          .eq("user_id", authData.user.id).maybeSingle();
+        if (cancelled) return;
+        if (goalResult.error) {
+          goals = { status: "error" };
+        } else if (goalResult.data) {
+          goals = { status: "ready", calories: Number(goalResult.data.calorie_target), protein: Number(goalResult.data.protein_target) };
+        }
+
         let exercise: ExerciseBurnState = { status: "hidden" };
         const preferenceResult = await supabase.from("user_preferences")
           .select("show_exercise_calories")
@@ -103,6 +120,7 @@ export function TodayOverview() {
           dateLabel: today.label,
           summary: summarizeDailyNutrition((data ?? []) as DailyMealRecord[]),
           exercise,
+          goals,
         });
       } catch {
         if (!cancelled) setState({ status: "error" });
@@ -211,6 +229,30 @@ export function TodayOverview() {
           </div>
         ))}
       </div>
+
+      {state.status === "ready" && state.goals.status === "ready" && (
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm" aria-label="Daily goal progress">
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-bold">My food targets</h3><Link href="/goals" className="text-sm font-bold text-emerald-700 hover:underline">Edit goals →</Link></div>
+          <p className="mt-1 text-xs text-slate-500">Only food intake counts toward these targets. Exercise does not change them.</p>
+          {[
+            { label: "Calories", current: summary?.calories ?? 0, target: state.goals.calories, unit: "kcal", incomplete: false },
+            { label: "Protein", current: summary?.protein.grams ?? 0, target: state.goals.protein, unit: "g", incomplete: summary?.protein.incomplete ?? false },
+          ].map(item => {
+            const progress = targetProgress(item.current, item.target);
+            return <div key={item.label} className="mt-4">
+              <div className="flex justify-between gap-3 text-sm"><span className="font-semibold">{item.label}{item.incomplete ? " (partial)" : ""}</span><span>{Math.round(item.current)} / {item.target} {item.unit}</span></div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`${item.label} target progress`} aria-valuemin={0} aria-valuemax={item.target} aria-valuenow={Math.min(item.target, Math.round(item.current))}><div className="h-full rounded-full bg-emerald-500" style={{width: `${progress.percent}%`}} /></div>
+              <p className="mt-1 text-xs text-slate-500">{item.incomplete ? "Some meals have unknown nutrients; the total may be higher." : progress.difference >= 0 ? `${progress.difference} ${item.unit} below your target` : `${-progress.difference} ${item.unit} above your target`}</p>
+            </div>;
+          })}
+        </div>
+      )}
+      {state.status === "ready" && state.goals.status === "unset" && (
+        <p className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Want to track your progress toward personal food targets? <Link href="/goals" className="font-bold text-emerald-700 underline">Set your goals</Link>.</p>
+      )}
+      {state.status === "ready" && state.goals.status === "error" && (
+        <p role="alert" className="mt-4 text-sm text-red-700">Personal goals aren't available yet. Make sure the Phase 5 migration has been run.</p>
+      )}
 
       {state.status === "ready" && state.exercise.status === "ready" && (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
