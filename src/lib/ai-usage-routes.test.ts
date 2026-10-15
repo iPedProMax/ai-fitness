@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const { authMock, reserveMock, readMock, geminiMock } = vi.hoisted(() => ({
@@ -54,6 +54,58 @@ describe("AI quota integration boundaries", () => {
     readMock.mockReset(); geminiMock.mockReset();
     process.env.GEMINI_API_KEY = "test-key";
   });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  const aiRoutes = [
+    { label: "photo", handler: photo, request: photoRequest, kind: "analysis", failureStatus: 500 },
+    { label: "text", handler: text, request: textRequest, kind: "analysis", failureStatus: 502 },
+    { label: "refinement", handler: refine, request: () => refineRequest(), kind: "refinement", failureStatus: 500 },
+  ] as const;
+
+  for (const route of aiRoutes) {
+    it(`${route.label} success reserves exactly one credit before calling the provider`, async () => {
+      reserveMock.mockResolvedValue(null);
+      geminiMock.mockResolvedValue({ output_text: JSON.stringify({
+        foods: [{ name: "Rice", estimatedGrams: 100, calories: 130,
+          protein: 3, carbs: 28, fat: 0, confidence: 0.8 }],
+        totalCalories: 130, notes: "", clarifications: [],
+      }) });
+
+      const response = await route.handler(route.request());
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        foods: [expect.objectContaining({ name: "Rice", calories: 130 })],
+        totalCalories: 130,
+      });
+      expect(reserveMock).toHaveBeenCalledExactlyOnceWith(route.kind);
+      expect(geminiMock).toHaveBeenCalledOnce();
+      expect(reserveMock.mock.invocationCallOrder[0]).toBeLessThan(geminiMock.mock.invocationCallOrder[0]);
+    });
+
+    it(`${route.label} provider failure keeps its existing error and never reserves a second credit`, async () => {
+      reserveMock.mockResolvedValue(null);
+      geminiMock.mockRejectedValue(new Error("Synthetic upstream failure"));
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+      const response = await route.handler(route.request());
+      expect(response.status).toBe(route.failureStatus);
+      expect(reserveMock).toHaveBeenCalledExactlyOnceWith(route.kind);
+      expect(geminiMock).toHaveBeenCalledOnce();
+    });
+
+    it(`${route.label} missing configuration spends no credits and makes no provider call`, async () => {
+      vi.stubEnv("GEMINI_API_KEY", "");
+      const response = await route.handler(route.request());
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: "Gemini API key is not configured." });
+      expect(reserveMock).not.toHaveBeenCalled();
+      expect(geminiMock).not.toHaveBeenCalled();
+    });
+  }
 
   it("validates photo uploads without spending any analysis", async () => {
     const response = await photo(new Request("http://localhost/api/food/analyze", {

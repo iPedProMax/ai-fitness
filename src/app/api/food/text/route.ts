@@ -1,6 +1,6 @@
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { GoogleGenAI } from "@google/genai";
+import { getAiProvider } from "@/lib/ai/provider";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
 import { enforceBrandClarifications } from "@/lib/brand-clarification";
@@ -24,17 +24,15 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const provider = getAiProvider();
+  if (!provider) {
     return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
   }
   try {
     const quotaError = await reserveAiUsage("analysis");
     if (quotaError) return quotaError;
 
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.interactions.create({
-      model: "gemini-3.5-flash-lite",
+    const response = await provider.generate({
       input: [{
         type: "text",
         text: [
@@ -57,16 +55,12 @@ export async function POST(request: Request) {
           "----- END DESCRIPTION -----",
         ].join("\n"),
       }],
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: foodAnalysisJsonSchema,
-      },
+      responseSchema: foodAnalysisJsonSchema,
     });
-    if (!response.output_text) {
+    if (!response.outputText) {
       return NextResponse.json({ error: "AI returned no food estimate." }, { status: 502 });
     }
-    const parsed = foodAnalysisSchema.parse(JSON.parse(response.output_text));
+    const parsed = foodAnalysisSchema.parse(JSON.parse(response.outputText));
     if (parsed.foods.length === 0 || parsed.foods.length > 10) {
       return NextResponse.json({ error: "Please describe between 1 and 10 foods." }, { status: 422 });
     }

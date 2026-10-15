@@ -36,10 +36,10 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
-Vitest tests live alongside the source; there is no `npm test` script. Feature work requires meaningful tests, the complete test suite, and a production build. Tests should mock AI providers rather than incur paid calls. These commands are instructions, not a claim of passing results from the documentation milestone.
+Vitest tests live alongside the source; there is no `npm test` script. Feature work requires meaningful tests, the complete test suite, and a production build. Tests should mock AI providers rather than incur paid calls. See `PROJECT_CONTEXT.md` for the latest actual verification results and any baseline failures.
 
 ## Development status
 
-Phases 1-5 are owner-confirmed completed milestones with implementations present in source. The daily meal calorie planner is planned. Phase 6, Auto Best Multi-AI Provider Support, is next and awaits approval. The AI Fitness Coach remains Phase 7 with a separately proposed allowance. See `ROADMAP.md` for later phases and `PROJECT_CONTEXT.md` for verification limits and unresolved findings.
+Phases 1-5 are owner-confirmed completed milestones with implementations present in source. The daily meal calorie planner is planned. Phase 6, Auto Best Multi-AI Provider Support, has begun with a reviewed Gemini-only provider foundation approved for a local checkpoint; additional providers and fallback are not enabled. The AI Fitness Coach remains Phase 7 with a separately proposed allowance. See `ROADMAP.md` for later phases and `PROJECT_CONTEXT.md` for verification results and unresolved findings.
 
 Do not commit, push, deploy, modify production Supabase schemas/data, or make paid API calls without explicit approval. Preserve unrelated changes and untracked files.

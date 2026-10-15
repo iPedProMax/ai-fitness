@@ -1,6 +1,7 @@
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { GoogleGenAI } from "@google/genai";
+import { getAiProvider } from "@/lib/ai/provider";
+import type { AiImageMimeType, AiInputPart } from "@/lib/ai/types";
 import { NextResponse } from "next/server";
 
 import {
@@ -30,22 +31,6 @@ const MAX_IMAGE_SIZE =
   10 * 1024 * 1024;
 
 const MAX_IMAGES = 10;
-
-type SupportedMimeType =
-  | "image/jpeg"
-  | "image/png"
-  | "image/webp";
-
-type GeminiInputPart =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "image";
-      data: string;
-      mime_type: SupportedMimeType;
-    };
 
 function getLegacyImage(
   formData: FormData,
@@ -98,7 +83,7 @@ function validateImage(
 
 async function createImagePart(
   image: File
-): Promise<GeminiInputPart> {
+): Promise<AiInputPart> {
   const bytes = Buffer.from(
     await image.arrayBuffer()
   );
@@ -110,8 +95,8 @@ async function createImagePart(
       "base64"
     ),
 
-    mime_type:
-      image.type as SupportedMimeType,
+    mimeType:
+      image.type as AiImageMimeType,
   };
 }
 
@@ -407,11 +392,9 @@ export async function POST(
       }
     }
 
-    const apiKey =
-      process.env
-        .GEMINI_API_KEY;
+    const provider = getAiProvider();
 
-    if (!apiKey) {
+    if (!provider) {
       return NextResponse.json(
         {
           error:
@@ -426,12 +409,7 @@ export async function POST(
     const quotaError = await reserveAiUsage("analysis");
     if (quotaError) return quotaError;
 
-    const ai =
-      new GoogleGenAI({
-        apiKey,
-      });
-
-    const input: GeminiInputPart[] =
+    const input: AiInputPart[] =
       [
         {
           type: "text",
@@ -606,28 +584,13 @@ Associate it with other images only when the connection is reasonably supported.
       );
     }
 
-    const interaction =
-      await ai.interactions.create(
-        {
-          model:
-            "gemini-3.5-flash-lite",
-
-          input,
-
-          response_format: {
-            type: "text",
-
-            mime_type:
-              "application/json",
-
-            schema:
-              foodAnalysisJsonSchema,
-          },
-        }
-      );
+    const resultFromProvider = await provider.generate({
+      input,
+      responseSchema: foodAnalysisJsonSchema,
+    });
 
     const outputText =
-      interaction.output_text;
+      resultFromProvider.outputText;
 
     if (!outputText) {
       return NextResponse.json(

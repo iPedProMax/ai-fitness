@@ -1,6 +1,6 @@
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { GoogleGenAI } from "@google/genai";
+import { getAiProvider } from "@/lib/ai/provider";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -445,10 +445,9 @@ export async function POST(
      * final arithmetic.
      */
 
-    const apiKey =
-      process.env.GEMINI_API_KEY;
+    const provider = getAiProvider();
 
-    if (!apiKey) {
+    if (!provider) {
       return NextResponse.json(
         {
           error:
@@ -462,11 +461,6 @@ export async function POST(
 
     const quotaError = await reserveAiUsage("refinement");
     if (quotaError) return quotaError;
-
-    const ai =
-      new GoogleGenAI({
-        apiKey,
-      });
 
     const prompt = `
 You are refining an existing food nutrition analysis after the user answered a clarification.
@@ -633,11 +627,8 @@ Explain this in notes.
 Return ONLY the additive refinement plan.
 `;
 
-    const interaction =
-      await ai.interactions.create({
-        model:
-          "gemini-3.5-flash-lite",
-
+    const resultFromProvider =
+      await provider.generate({
         input: [
           {
             type: "text",
@@ -645,19 +636,11 @@ Return ONLY the additive refinement plan.
           },
         ],
 
-        response_format: {
-          type: "text",
-
-          mime_type:
-            "application/json",
-
-          schema:
-            additiveRefinementJsonSchema,
-        },
+        responseSchema: additiveRefinementJsonSchema,
       });
 
     const outputText =
-      interaction.output_text;
+      resultFromProvider.outputText;
 
     if (!outputText) {
       return NextResponse.json(
