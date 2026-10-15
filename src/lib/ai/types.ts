@@ -8,6 +8,14 @@ export type AiInputPart =
 export type AiGenerationRequest = {
   input: AiInputPart[];
   responseSchema: Record<string, unknown>;
+  signal?: AbortSignal;
+};
+
+export type AiCapabilities = {
+  readonly text: boolean;
+  readonly vision: boolean;
+  readonly maxImages: number;
+  readonly structuredJson: boolean;
 };
 
 export type AiGenerationResult = {
@@ -17,5 +25,8 @@ export type AiGenerationResult = {
 /** Implementations perform transport only; they never reserve user credits. */
 export interface AiProvider {
   readonly id: string;
+  readonly enabled: boolean;
+  readonly available: boolean;
+  readonly capabilities: AiCapabilities;
   generate(request: AiGenerationRequest): Promise<AiGenerationResult>;
 }

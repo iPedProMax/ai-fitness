@@ -1,3 +1,4 @@
+import { submitAiRequest, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -6,9 +7,10 @@ import {
 export async function refineFoodAnalysis(
   analysis: FoodAnalysis,
   clarificationId: string,
-  answer: string
+  answer: string,
+  options?: AiSubmissionOptions
 ): Promise<FoodAnalysis> {
-  const response = await fetch("/api/food/refine", {
+  const response = await submitAiRequest("/api/food/refine", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -18,7 +20,7 @@ export async function refineFoodAnalysis(
       clarificationId,
       answer,
     }),
-  });
+  }, options);
 
   const data = await response.json();
 

@@ -1,6 +1,8 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { getAiProvider } from "@/lib/ai/provider";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import type { AiImageMimeType, AiInputPart } from "@/lib/ai/types";
 import { NextResponse } from "next/server";
 
@@ -300,7 +302,7 @@ function enforceMaterialUncertaintyClarifications(
   };
 }
 
-export async function POST(
+async function handlePost(
   request: Request
 ) {
   const authError = await requireFoodApiAuth();
@@ -587,6 +589,7 @@ Associate it with other images only when the connection is reasonably supported.
     const resultFromProvider = await provider.generate({
       input,
       responseSchema: foodAnalysisJsonSchema,
+      signal: request.signal,
     });
 
     const outputText =
@@ -639,9 +642,10 @@ Associate it with other images only when the connection is reasonably supported.
       result
     );
   } catch (error) {
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
     console.error(
-      "Gemini food analysis failed:",
-      error
+      "Gemini food analysis failed."
     );
 
     return NextResponse.json(
@@ -654,4 +658,8 @@ Associate it with other images only when the connection is reasonably supported.
       }
     );
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }

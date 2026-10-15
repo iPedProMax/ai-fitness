@@ -1,13 +1,15 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { getAiProvider } from "@/lib/ai/provider";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
 import { enforceBrandClarifications } from "@/lib/brand-clarification";
 import { enforceVarietyClarifications } from "@/lib/variety-clarification";
 import { validateFoodText } from "@/lib/food-text-input";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const authError = await requireFoodApiAuth();
   if (authError) return authError;
 
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
         ].join("\n"),
       }],
       responseSchema: foodAnalysisJsonSchema,
+      signal: request.signal,
     });
     if (!response.outputText) {
       return NextResponse.json({ error: "AI returned no food estimate." }, { status: 502 });
@@ -82,7 +85,13 @@ export async function POST(request: Request) {
     const result = enforceVarietyClarifications(withBrands);
     return NextResponse.json(result);
   } catch (error) {
-    console.error("AI text nutrition estimation failed:", error);
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
+    console.error("AI text nutrition estimation failed.");
     return NextResponse.json({ error: "Could not estimate food from text. Try a clearer description." }, { status: 502 });
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }

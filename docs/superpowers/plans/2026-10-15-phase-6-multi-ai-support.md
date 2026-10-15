@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task only after owner approval. Steps use checkbox (`- [ ]`) syntax for tracking. Do not delegate without separate authorization.
 
-**Status:** Original full Phase 6 proposal; only the Gemini provider foundation is authorized by Task #4. That narrowed subset is implemented and reviewed in Task #5: provider-neutral contracts, a server-only Gemini selector/adapter, route wiring, and focused tests. Prompts, response schemas, clarification logic, reservations, and model are preserved. Task #5 authorizes one local checkpoint commit, `refactor: introduce Gemini AI provider abstraction`, including this plan as project documentation. Schema extraction, provider capability routing, fallback, retries/timeouts, distributed budgets, privileged credentials, and idempotency below remain unimplemented and require future approval. See `PROJECT_CONTEXT.md` and `ROADMAP.md` for current verification results.
+**Status:** Historical full proposal, superseded where necessary by the owner's “Finish Phase 6 Safely” task. The foundation is committed as `d1483b741d4b1a418e34b85afcff204cbe7b854e`; subsequent local work is approved for the reviewed Phase 6 checkpoint commit. Local capability routing/fallback, durable admission/replay, distributed caps/budgets/cooldowns/concurrency, kill switches, and a disabled real Groq adapter are now implemented. Gemini is the only production registration. Only the local checkpoint commit is now approved; no credential, live migration, model traffic, paid activation, push, or deployment is authorized. See [current operations](../../phase-6-operations.md), `PROJECT_CONTEXT.md`, and `ROADMAP.md` for actual state; unchecked historical steps below are proposals where they differ.
 
 **Goal:** Keep Gemini primary while adding capability-aware provider fallback that preserves nutrition behavior and charges at most one user credit per accepted logical request.
 
@@ -19,6 +19,27 @@ Branch/worktree: `feature/supabase-auth`, `C:\Users\Ped\GitHub\ai-fitness\.workt
 Local documentation commit: `ad986ef338415a3ca8df8d1f46f30c3c89be570f`, `docs: establish AI Fitness project context and roadmap`. It contains only `AGENTS.md`, `PROJECT_CONTEXT.md`, `ROADMAP.md`, and `README.md`. Their earlier checkpoint refers to the inspected application commit `9b07977`; use `git log -1` to obtain current HEAD rather than treating that historical snapshot as live Git state.
 
 Phase 6 is Multi-AI Support. Phase 7 remains AI Fitness Coach. The daily meal calorie planner remains a pending Phase 5 enhancement. Coach allowance, meal-planner implementation, and unrelated technical fixes are outside this plan.
+
+## Current local safety checkpoint
+
+The latest owner authorization extends Task #6 to all locally achievable safety work. `20261015_ai_request_control.sql` is a local, unexecuted migration: trusted execution atomically admits authenticated keys/payload hashes with existing 20/60 Manila-day counters and final JSON/status replay. Shared attempt accounting enforces fixed provider windows, global UTC budgets, Pacific Gemini RPD reset/DST, a two-attempt bound, cooldowns, and concurrency leases. Missing configuration/accounting fails closed; runtime/provider defaults are disabled and paid execution is always rejected. The dedicated service-role accounting client is server-only; no credential was provisioned.
+
+Groq's real text-only JSON adapter defaults disabled and is absent from production registration. Official capabilities/free-plan terms are sourced in the operations guide. Conservative full-model token ceilings may exceed actual free-tier limits and must be resolved before practical activation on affected accounts. Existing prompts, Zod schemas, normalizations, deterministic free branches, and failure-credit policy are preserved. SQL/HTTP integration tests run locally using PGlite and mocked model transport; separate-connection PostgreSQL verification remains an activation gate. Physical replay-body purge must be scheduled. This checkpoint supersedes the earlier Task #6 scope exclusions below.
+
+## Historical Task #6 implementation checkpoint
+
+- Actual `AiProvider` metadata: `id`, `enabled`, `available`, and `capabilities` containing `text`, `vision`, `maxImages`, and `structuredJson`. Availability is server-declared configuration state, not an active health check.
+- The current request interface remains ordered text/base64 image input and a response schema, with an optional cancellation signal. Raw output text still reaches existing route JSON/Zod handling. The broader `ProviderRequest`/`SchemaId` design below has not replaced this working contract.
+- `selectCompatibleProviders()` prefers Gemini, excludes disabled/unavailable or incompatible providers, and deduplicates IDs. The existing Gemini adapter advertises the application's current ten-image range. Image evidence is not truncated or routed to a text-only backup.
+- `generateWithFallback()` accepts providers only from server code. Defaults and upper bounds are two distinct attempts, 20 seconds per attempt, and a 45-second overall generation deadline. Caller abort stops fallback; each attempt gets its own abort controller with timer/listener cleanup. Late results are ignored.
+- Only HTTP 408/429/500/502/503/504 and known network/timeout failures permit fallback. HTTP 401/403, invalid user input, daily user-credit exhaustion, unknown or Zod errors, and cancellation stop. Unlike the broader proposal below, this implementation does not fallback on malformed/empty model output or provider authentication errors.
+- The installed SDK can wrap unknown client errors as connection errors. Its underlying cause must establish a real network failure. A regression using the real SDK and mocked fetch covers the distinction.
+- Gemini's Interactions request explicitly disables SDK retries and receives the attempt signal and a bounded HTTP timeout. Mocked fetch tests verify one outbound SDK call for 429/503, cancellation propagation, unknown-error rejection, and genuine-network fallback. No actual API requests are made.
+- `getAiProvider()` constructs only Gemini; no backup registration, client selector, extra key, or real fallback traffic exists. Extra submitted `provider`/`model` fields do not affect routing.
+- All three routes reserve their existing credit once outside generation. Mocked route fallback proves one analysis or refinement reservation even with two attempts. Existing 20/60 limits, Manila resets, manual flows, and deterministic scale refinements remain unchanged.
+- Sanitized router failures return uncached 503 responses for no compatible/unavailable provider, 504 for timeout, and 408 for cancellation. Existing non-router errors keep the old route handling.
+- Cross-request idempotency still requires a separately approved migration and retention/replay decisions. Shared budgets, provider account/billing checks, and spending enforcement must precede real backup activation. A timed-out attempt may continue upstream and an all-failed request can retain its one user credit.
+- Verification results and baseline lint limitations are recorded in `PROJECT_CONTEXT.md`. The complete Phase 6 proposal below is not an authorization to implement those remaining systems.
 
 ## Global constraints
 
@@ -109,7 +130,7 @@ Strict schemas vary between APIs. OpenAI requires all fields in strict schemas t
 - Initial output cap: 4,096 tokens, bounded by model availability and estimated JSON size. Test full 10-food fixtures; incomplete output is a failure, never partial success. Raising the cap requires a corresponding budget change.
 - Fallback for transport failures, timeouts, 408/429, and 5xx. Allow one fallback for empty/truncated/schema-invalid output within the same ceiling. Do not retry client-input errors, auth/quota failures, or safety refusals to circumvent policy.
 - Honor provider `Retry-After` as a cooldown; never wait beyond the remaining request deadline. Avoid immediately reusing a rate-limited provider. Use a shared circuit breaker after repeated transient failures; disable a misconfigured adapter on 401/403 without logging upstream bodies/secrets.
-- An upstream 401/403 may move to an already approved, independently configured fallback within the same attempt ceiling; never retry the invalid credential. This differs from a caller authentication failure, which stops before admission.
+- Historical proposal: an upstream 401/403 could move to a configured fallback. Task #6 explicitly overrides this: provider authentication failures stop without fallback. Any later change needs approval.
 - Retain worst-case cost reservations after ambiguous timeouts; upstream work may still be billed. Track each attempt separately and reconcile known token usage conservatively.
 - Distinguish user quota exhaustion (429) from system/provider capacity exhaustion (503 with safe retry guidance). Keep success JSON unchanged and sanitize all errors.
 

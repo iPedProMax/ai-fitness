@@ -1,3 +1,9 @@
+// This suite tests route/adapter behavior. Durable admission and production
+// accounting are exercised without this mock in request-control integration tests.
+vi.mock("@/lib/ai/request-control", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ai/request-control")>(),
+  guardProvider: (provider: import("@/lib/ai/types").AiProvider) => provider,
+}));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createMock, clientOptions } = vi.hoisted(() => ({
@@ -71,7 +77,7 @@ describe("server AI provider foundation", () => {
         { type: "image", data: "c2NhbGU=", mime_type: "image/webp" },
       ],
       response_format: { type: "text", mime_type: "application/json", schema },
-    });
+    }, { signal: expect.any(AbortSignal), timeout_ms: 20_000, retries: { strategy: "none" } });
     expect(result).toEqual({ outputText });
   });
 

@@ -9,7 +9,11 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 export function createGeminiProvider(apiKey: string): AiProvider {
   return {
     id: "gemini",
-    async generate({ input, responseSchema }) {
+    enabled: true,
+    available: true,
+    // Preserve the application's existing ten-image range, not a new model claim.
+    capabilities: { text: true, vision: true, maxImages: 10, structuredJson: true },
+    async generate({ input, responseSchema, signal }) {
       // Construct lazily: routes verify configuration before reserving credits,
       // but do not reach the SDK until their existing reservation succeeds.
       const ai = new GoogleGenAI({ apiKey });
@@ -23,7 +27,7 @@ export function createGeminiProvider(apiKey: string): AiProvider {
           mime_type: "application/json",
           schema: responseSchema,
         },
-      });
+      }, { signal, timeout_ms: 20_000, retries: { strategy: "none" } });
 
       // Leave empty output, JSON parsing, Zod checks, and errors to the routes.
       return { outputText: interaction.output_text };

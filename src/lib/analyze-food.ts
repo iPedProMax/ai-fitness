@@ -1,3 +1,4 @@
+import { submitAiRequest, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -10,7 +11,8 @@ export type FoodAnalysisInput = {
 const MAX_IMAGES = 10;
 
 export async function analyzeFood(
-  input: File | File[] | FoodAnalysisInput
+  input: File | File[] | FoodAnalysisInput,
+  options?: AiSubmissionOptions
 ): Promise<FoodAnalysis> {
   const images =
     input instanceof File
@@ -37,12 +39,12 @@ export async function analyzeFood(
     formData.append("images", image);
   });
 
-  const response = await fetch(
+  const response = await submitAiRequest(
     "/api/food/analyze",
     {
       method: "POST",
       body: formData,
-    }
+    }, options
   );
 
   const data = await response.json();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { reserveDurableAiUsage } from "@/lib/ai/request-control";
 
 export type AiUsageStatus = {
   limit: number;
@@ -7,15 +8,6 @@ export type AiUsageStatus = {
   remaining: number;
   refinementLimit: number;
   refinementsUsed: number;
-  resetsAt: string;
-};
-
-type AiReservation = {
-  allowed: boolean;
-  kind: "analysis" | "refinement";
-  limit: number;
-  used: number;
-  remaining: number;
   resetsAt: string;
 };
 
@@ -27,14 +19,6 @@ function isCount(value: unknown): value is number {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isReservation(value: unknown): value is AiReservation {
-  return isObject(value) &&
-    typeof value.allowed === "boolean" &&
-    (value.kind === "analysis" || value.kind === "refinement") &&
-    isCount(value.limit) && isCount(value.used) && isCount(value.remaining) &&
-    typeof value.resetsAt === "string" && !Number.isNaN(Date.parse(value.resetsAt));
 }
 
 function isUsage(value: unknown): value is AiUsageStatus {
@@ -52,26 +36,9 @@ function unavailable(): NextResponse {
   );
 }
 
-/** Atomically charges one allowed request, before Gemini is called. */
+/** Atomically admits one logical request within its durable HTTP context. */
 export async function reserveAiUsage(kind: "analysis" | "refinement"): Promise<NextResponse | null> {
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.rpc("reserve_ai_usage", { p_kind: kind });
-    if (error || !isReservation(data) || data.kind !== kind) return unavailable();
-    if (!data.allowed) {
-      return NextResponse.json({
-        error: kind === "analysis"
-          ? "Your 20 free AI analyses are used up for today. You can still log food manually."
-          : "Your daily AI clarification limit has been reached. Try again tomorrow.",
-        code: "AI_QUOTA_EXCEEDED",
-        remaining: data.remaining,
-        resetsAt: data.resetsAt,
-      }, { status: 429, headers: noStore });
-    }
-    return null;
-  } catch {
-    return unavailable();
-  }
+  return reserveDurableAiUsage(kind);
 }
 
 /** Read-only status. Must be called behind requireFoodApiAuth(). */

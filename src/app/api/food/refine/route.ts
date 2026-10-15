@@ -1,6 +1,8 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { getAiProvider } from "@/lib/ai/provider";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -184,7 +186,7 @@ function combineNotes(
   return `${original} ${added}`;
 }
 
-export async function POST(
+async function handlePost(
   request: Request
 ) {
   const authError = await requireFoodApiAuth();
@@ -637,6 +639,7 @@ Return ONLY the additive refinement plan.
         ],
 
         responseSchema: additiveRefinementJsonSchema,
+        signal: request.signal,
       });
 
     const outputText =
@@ -840,8 +843,7 @@ Return ONLY the additive refinement plan.
     }
 
     console.error(
-      "Invalid additive refinement response:",
-      additiveResult.error
+      "Invalid additive refinement response."
     );
 
     return NextResponse.json(
@@ -854,9 +856,10 @@ Return ONLY the additive refinement plan.
       }
     );
   } catch (error) {
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
     console.error(
-      "Gemini food refinement failed:",
-      error
+      "Gemini food refinement failed."
     );
 
     return NextResponse.json(
@@ -869,4 +872,8 @@ Return ONLY the additive refinement plan.
       }
     );
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }
