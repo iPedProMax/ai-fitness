@@ -19,6 +19,8 @@ import { generateWithFallback } from "./router";
 import * as providerFactory from "./provider";
 import { createGeminiProvider } from "./providers/gemini";
 import { createGroqProvider } from "./providers/groq";
+import { createCloudflareProvider } from "./providers/cloudflare";
+import { aiRoutingErrorResponse } from "./errors";
 
 const db=new PGlite();
 const user="00000000-0000-4000-8000-000000000001";
@@ -73,6 +75,44 @@ describe("HTTP → durable admission → guarded provider → final response rep
     expect((await photo(make())).headers.get("Idempotency-Replayed")).toBe("true");
     expect(sdk).toHaveBeenCalledOnce();expect(await count()).toBe(1);
   });
+  it("admits ten-photo analysis under a 100k shared token cap and reserves once across replay",async()=>{
+    await db.exec("update public.ai_provider_policy set tokens_per_minute=100000,tokens_per_day=100000 where provider='gemini'");
+    const key=randomUUID();
+    const make=()=>{
+      const body=new FormData();
+      for(let i=0;i<10;i++)body.append("images",new File(["photo"],`${i}.jpg`,{type:"image/jpeg"}));
+      return new Request("http://localhost/api/food/analyze",{method:"POST",headers:{"Idempotency-Key":key},body});
+    };
+    expect((await photo(make())).status).toBe(200);
+    expect((await photo(make())).headers.get("Idempotency-Replayed")).toBe("true");
+    const attempts=control.mock.calls.map(([args])=>args as ControlArguments).filter(args=>args.p_operation==="attempt");
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].p_tokens).toBeGreaterThan(16_384+10*1_120);
+    expect(attempts[0].p_tokens).toBeLessThan(100_000);
+    const usage=(await db.query<{tokens:number}>("select tokens::int as tokens from public.ai_provider_usage where provider='gemini' and window_kind='day'")).rows[0];
+    expect(usage.tokens).toBe(attempts[0].p_tokens);
+    expect(sdk.mock.calls[0][0].generation_config).toEqual({max_output_tokens:16_384});
+    expect(sdk.mock.calls[0][0].input.filter((part:{type:string})=>part.type==="image")).toEqual(Array.from({length:10},()=>expect.objectContaining({resolution:"high"})));
+    expect(await count()).toBe(1);expect(sdk).toHaveBeenCalledOnce();
+  });
+  it("still blocks a second request when the shared token allowance is exhausted",async()=>{
+    await db.exec("update public.ai_provider_policy set tokens_per_minute=100000,tokens_per_day=100000 where provider='gemini'");
+    expect((await text(request())).status).toBe(200);
+    const reservation=(control.mock.calls.find(([args])=>args.p_operation==="attempt")![0] as ControlArguments).p_tokens!;
+    await db.query("update public.ai_provider_policy set tokens_per_day=$1 where provider='gemini'",[reservation]);
+    expect((await text(request())).status).toBe(503);
+    expect(sdk).toHaveBeenCalledOnce();expect(await count()).toBe(1); // Pre-dispatch denial refunded.
+  });
+  it("rejects oversized refinement text without making a provider attempt",async()=>{
+    const response=await refine(new Request("http://localhost/api/food/refine",{method:"POST",headers:{"Idempotency-Key":randomUUID()},body:JSON.stringify({
+      analysis:{...food,notes:"x".repeat(200_000),clarifications:[{id:"oil",foodIndex:0,question:"Added oil?",options:["Yes","No"]}]},clarificationId:"oil",answer:"Yes",
+    })}));
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({code:"AI_INPUT_TOO_LARGE"});
+    expect(control.mock.calls.some(([args])=>args.p_operation==="attempt")).toBe(false);
+    expect(sdk).not.toHaveBeenCalled();
+    expect((await db.query<{ used: number }>("select coalesce(sum(refinements_used),0)::int as used from public.ai_daily_usage")).rows[0].used).toBe(0);
+  });
   it("replays AI refinement and preserves additive arithmetic and its separate allowance",async()=>{
     const key=randomUUID();
     const make=()=>new Request("http://localhost/api/food/refine",{method:"POST",headers:{"Idempotency-Key":key},body:JSON.stringify({analysis:{...food,clarifications:[{id:"oil",foodIndex:0,question:"Added oil?",options:["Yes","No"]}]},clarificationId:"oil",answer:"Yes"})});
@@ -94,10 +134,10 @@ describe("HTTP → durable admission → guarded provider → final response rep
     expect((await text(request())).status).toBe(503);expect(sdk).not.toHaveBeenCalled();
     expect(await count()).toBe(0);
   });
-  it("fails closed on an attempt denial and records the existing failure-credit policy",async()=>{
+  it("fails closed on an attempt denial and refunds the credit before dispatch",async()=>{
     await db.exec("update public.ai_provider_policy set tokens_per_minute=1 where provider='gemini'");
     expect((await text(request())).status).toBe(503);expect(sdk).not.toHaveBeenCalled();
-    expect(await count()).toBe(1);
+    expect(await count()).toBe(0);
   });
   it("does not return an unrecorded success if finalization fails",async()=>{
     const impl=control.getMockImplementation()!;
@@ -117,6 +157,19 @@ describe("HTTP → durable admission → guarded provider → final response rep
     const generate=vi.fn();const provider:AiProvider={id:"gemini",enabled:true,available:true,capabilities:{text:true,vision:true,maxImages:10,structuredJson:true},generate};
     await expect(guardProvider(provider).generate({input:[],responseSchema:{}})).rejects.toMatchObject({code:"ACCOUNTING_UNAVAILABLE"});
     expect(generate).not.toHaveBeenCalled();
+  });
+  it("fails closed for Cloudflare until distributed quota accounting is implemented",async()=>{
+    const transport=vi.fn();vi.stubGlobal("fetch",transport);
+    const provider=guardProvider(createCloudflareProvider({accountId:"a".repeat(32),apiToken:"synthetic-token"},true));
+    const response=await withAiRequest(request(),async()=>{
+      const denied=await reserveAiUsage("analysis");if(denied)return denied;
+      try { await provider.generate({input:[{type:"text",text:"Rice"}],responseSchema:{}}); }
+      catch(error) { return aiRoutingErrorResponse(error)!; }
+      return NextResponse.json({error:"Unexpected execution"},{status:500});
+    });
+    expect(response.status).toBe(503);expect(transport).not.toHaveBeenCalled();
+    expect(control.mock.calls.some(([args])=>args.p_operation==="attempt")).toBe(false);
+    expect(await count()).toBe(0); // Denied before any approved provider attempt.
   });
   it("a transient primary outage reserves two provider attempts and one user credit",async()=>{
     const primary:AiProvider={id:"gemini",enabled:true,available:true,capabilities:{text:true,vision:true,maxImages:10,structuredJson:true},generate:vi.fn().mockRejectedValue({status:429})};
@@ -153,7 +206,7 @@ describe("HTTP → durable admission → guarded provider → final response rep
     expect((await text(request())).status).toBe(503);
     const second=await text(request());
     expect(second.status).toBe(503);expect(Number(second.headers.get("Retry-After"))).toBeGreaterThan(0);
-    expect(sdk).toHaveBeenCalledOnce();expect(await count()).toBe(2);
+    expect(sdk).toHaveBeenCalledOnce();expect(await count()).toBe(1); // Only the attempted call is charged.
   });
   it("a provider ignoring timeout cannot evade durable timeout settlement",async()=>{
     const generate=vi.fn(()=>new Promise<never>(()=>{}));

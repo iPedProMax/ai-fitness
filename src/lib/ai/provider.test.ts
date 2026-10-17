@@ -71,12 +71,13 @@ describe("server AI provider foundation", () => {
       model: "gemini-3.5-flash-lite",
       input: [
         { type: "text", text: "Exact prompt\nwith whitespace.\n" },
-        { type: "image", data: "Zm9vZA==", mime_type: "image/jpeg" },
+        { type: "image", data: "Zm9vZA==", mime_type: "image/jpeg", resolution: "high" },
         { type: "text", text: "Label evidence" },
-        { type: "image", data: "bGFiZWw=", mime_type: "image/png" },
-        { type: "image", data: "c2NhbGU=", mime_type: "image/webp" },
+        { type: "image", data: "bGFiZWw=", mime_type: "image/png", resolution: "high" },
+        { type: "image", data: "c2NhbGU=", mime_type: "image/webp", resolution: "high" },
       ],
       response_format: { type: "text", mime_type: "application/json", schema },
+      generation_config: { max_output_tokens: 16_384 },
     }, { signal: expect.any(AbortSignal), timeout_ms: 20_000, retries: { strategy: "none" } });
     expect(result).toEqual({ outputText });
   });
@@ -100,6 +101,12 @@ describe("server AI provider foundation", () => {
       input: [{ type: "text", text: "Estimate rice" }],
       responseSchema: schema,
     })).rejects.toBe(error);
+    expect(createMock).toHaveBeenCalledOnce();
+  });
+  it("rejects output marked incomplete even if its truncated JSON could parse", async () => {
+    createMock.mockResolvedValue({ status: "incomplete", output_text: '{"notes":"partial"}' });
+    await expect(getAiProvider()!.generate({ input: [{ type: "text", text: "Rice" }], responseSchema: schema }))
+      .rejects.toThrow("incomplete");
     expect(createMock).toHaveBeenCalledOnce();
   });
 });

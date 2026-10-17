@@ -22,6 +22,17 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("real Gemini SDK with network mocked", () => {
+  it("sends the shared output cap and image resolution on the actual SDK wire format", async () => {
+    fetchMock.mockResolvedValue(Response.json({ id: "mock-interaction", status: "incomplete", outputs: [] }));
+    await expect(createGeminiProvider("test-key").generate({ ...request,
+      input: [...request.input, { type: "image", data: "AA==", mimeType: "image/png" }],
+    })).rejects.toThrow("incomplete");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [input, init] = fetchMock.mock.calls[0];
+    const body = input instanceof Request ? await input.clone().json() : JSON.parse(init?.body as string);
+    expect(body.generation_config).toEqual({ max_output_tokens: 16_384 });
+    expect(body.input[1]).toMatchObject({ type: "image", resolution: "high", mime_type: "image/png" });
+  });
   it("falls back for a genuine SDK-wrapped network failure", async () => {
     fetchMock.mockRejectedValue(new TypeError("fetch failed"));
     const primary = createGeminiProvider("test-key");

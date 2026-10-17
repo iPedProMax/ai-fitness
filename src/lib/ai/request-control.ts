@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { controlRequest, type ControlResult } from "./control-store";
 import { AiRoutingError } from "./errors";
+import { geminiTokenReservation } from "./gemini-token-budget";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -99,10 +100,9 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
   });
 }
 
-/** Worst-case model limits, not an optimistic token estimate. Full reservations
- * remain consumed on errors/timeouts. No reconciliation can undercount spending.
- * Deliberately conservative until an approved counting/output-cap strategy exists. */
-const tokenCeilings: Record<string, number> = { gemini: 1_048_576 + 65_536, groq: 131_072 + 65_536 };
+// Groq remains disabled/unregistered and retains its original full-model bound.
+// Every reservation remains consumed on errors/timeouts; no optimistic refunds.
+const tokenCeilings: Record<string, number> = { groq: 131_072 + 65_536 };
 
 async function observeCancellation(provider: AiProvider, request: AiGenerationRequest) {
   let cancel = () => {};
@@ -124,7 +124,7 @@ export function guardProvider(provider: AiProvider): AiProvider {
       throw new AiRoutingError("ACCOUNTING_UNAVAILABLE");
     }
     try {
-      const tokens = tokenCeilings[provider.id];
+      const tokens = provider.id === "gemini" ? geminiTokenReservation(request) : tokenCeilings[provider.id];
       if (!tokens) throw new Error("Unaccounted model");
       const result = await controlRequest({ p_operation: "attempt", p_user_id: context.userId,
         p_key: context.key, p_claim: context.claim, p_provider: provider.id, p_tokens: tokens });

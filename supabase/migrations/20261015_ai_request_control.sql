@@ -167,6 +167,23 @@ begin
        or octet_length(p_body::text)>1048576 then
       raise exception 'Invalid AI response' using errcode='22023';
     end if;
+    -- A failed request with NO approved outbound attempt is provably local-only.
+    -- Restore that user credit on its ORIGINAL Manila usage date, atomically
+    -- with final response persistence. Any authorized provider attempt retains
+    -- its credit even on errors/timeouts: the upstream call may have run.
+    -- The running->complete claim transition prevents duplicate refunds.
+    if p_status>=400 and cardinality(r.attempted_providers)=0 then
+      update public.ai_daily_usage set
+        analyses_used=analyses_used-case when r.kind='analysis' then 1 else 0 end,
+        refinements_used=refinements_used-case when r.kind='refinement' then 1 else 0 end,
+        updated_at=now()
+      where user_id=p_user_id and usage_date=(r.created_at at time zone 'Asia/Manila')::date
+        and ((r.kind='analysis' and analyses_used>0)
+          or (r.kind='refinement' and refinements_used>0));
+      if not found then
+        raise exception 'AI credit refund invariant failed' using errcode='P0001';
+      end if;
+    end if;
     update public.ai_requests set state='complete',response_status=p_status,response_body=p_body
       where user_id=p_user_id and request_key=p_key;
     return '{"ok":true}'::jsonb;

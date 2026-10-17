@@ -2,9 +2,10 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
-type RoutingErrorCode = "NO_COMPATIBLE_PROVIDER" | "UNAVAILABLE" | "TIMEOUT" | "CANCELLED" | "ACCOUNTING_UNAVAILABLE" | "PROVIDER_LIMITED";
+type RoutingErrorCode = "NO_COMPATIBLE_PROVIDER" | "UNAVAILABLE" | "TIMEOUT" | "CANCELLED" | "ACCOUNTING_UNAVAILABLE" | "PROVIDER_LIMITED" | "INPUT_TOO_LARGE";
 
 const messages: Record<RoutingErrorCode, string> = {
+  INPUT_TOO_LARGE: "This analysis contains too much text. Please shorten it and try again.",
   PROVIDER_LIMITED: "AI provider capacity is temporarily unavailable. Please try again later.",
   ACCOUNTING_UNAVAILABLE: "AI usage accounting cannot safely authorize this request.",
   NO_COMPATIBLE_PROVIDER: "No compatible AI provider is available for this request.",
@@ -41,7 +42,7 @@ export function isTransientProviderFailure(error: unknown): boolean {
 /** Only sanitized router errors become public; existing route errors stay intact. */
 export function aiRoutingErrorResponse(error: unknown): NextResponse | null {
   if (!(error instanceof AiRoutingError)) return null;
-  const status = error.code === "TIMEOUT" ? 504 : error.code === "CANCELLED" ? 408 : 503;
+  const status = error.code === "INPUT_TOO_LARGE" ? 413 : error.code === "TIMEOUT" ? 504 : error.code === "CANCELLED" ? 408 : 503;
   return NextResponse.json({ error: error.message, code: `AI_${error.code}` }, {
     status, headers: { "Cache-Control": "private, no-store", ...(error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds) } : {}) },
   });

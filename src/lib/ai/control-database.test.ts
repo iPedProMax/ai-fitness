@@ -60,7 +60,40 @@ describe("durable admission and distributed provider accounting", () => {
     const key = randomUUID(); const token = await claim(key);
     expect(await rpc({p_operation:"finish",p_user_id:user,p_key:key,p_claim:token,p_status:status,p_body:{ foods:[],error:status===200?null:"Failed" }})).toEqual({ok:true});
     expect(await begin(key)).toMatchObject({ replay:true,status });
+    expect(await count()).toBe(status===200?1:0); // Failed without any provider attempt: refunded.
+  });
+  it("refunds failed pre-dispatch admission at most once, with a permanent replay key", async () => {
+    const key=randomUUID(), token=await claim(key);
+    await db.exec("update public.ai_provider_policy set tokens_per_day=99 where provider='gemini'");
+    expect(await attempt(key,token)).toMatchObject({code:"AI_GLOBAL_LIMIT"});
+    expect(await count()).toBe(1); // Charged on admission until finalization.
+    const failure={error:"Shared AI provider limit reached."};
+    expect(await rpc({p_operation:"finish",p_user_id:user,p_key:key,p_claim:token,p_status:503,p_body:failure})).toEqual({ok:true});
+    expect(await count()).toBe(0);
+    expect(await begin(key)).toMatchObject({replay:true,status:503,body:failure});
+    expect(await rpc({p_operation:"finish",p_user_id:user,p_key:key,p_claim:token,p_status:503,p_body:failure})).toMatchObject({code:"AI_INVALID_CLAIM"});
+    expect(await count()).toBe(0);
+    expect(await begin()).toHaveProperty("claim"); // Credit restored for another attempt.
     expect(await count()).toBe(1);
+  });
+  it("refunds failed refinements separately without changing analysis credits", async () => {
+    const successKey=randomUUID(), successClaim=await claim(successKey);
+    expect(await attempt(successKey,successClaim)).toEqual({ok:true});
+    expect(await rpc({p_operation:"finish",p_user_id:user,p_key:successKey,p_claim:successClaim,p_status:200,p_body:{ok:true}})).toEqual({ok:true});
+    const failureKey=randomUUID();
+    const admitted=await begin(failureKey,"refinement");
+    expect(admitted).toHaveProperty("claim");
+    const failClaim=(admitted as {claim:string}).claim;
+    expect(await rpc({p_operation:"finish",p_user_id:user,p_key:failureKey,p_claim:failClaim,p_status:503,p_body:{error:"Unavailable"}})).toEqual({ok:true});
+    expect(await count()).toBe(1);
+    expect(await count("refinements_used")).toBe(0);
+  });
+  it("keeps credit on failed requests that may have reached an upstream model", async () => {
+    const key=randomUUID(), token=await claim(key);
+    expect(await attempt(key,token)).toEqual({ok:true});
+    expect(await rpc({p_operation:"settle",p_user_id:user,p_key:key,p_claim:token,p_provider:"gemini",p_status:503})).toEqual({ok:true});
+    expect(await rpc({p_operation:"finish",p_user_id:user,p_key:key,p_claim:token,p_status:503,p_body:{error:"Upstream unavailable"}})).toEqual({ok:true});
+    expect(await count()).toBe(1); // Conservative: an upstream call may have happened.
   });
   it("preserves separate 20/60 caps under concurrent submissions", async () => {
     const analyses = await Promise.all(Array.from({length:25},()=>begin()));

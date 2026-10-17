@@ -10,6 +10,7 @@ Manual food and exercise tracking and the TDEE calculator are free and use no AI
 - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md): architecture, implemented features, product decisions, known issues, and the current local checkpoint.
 - [ROADMAP.md](ROADMAP.md): exact phase order, planned enhancements, and the next task.
 - [Historical designs and plans](docs/superpowers/): earlier rationale; some specifications differ from current behavior.
+- [Cloudflare private local setup](docs/cloudflare-workers-ai-setup.md): server-only variable names for the disabled adapter; credentials alone do not activate it.
 
 ## Local development
 
@@ -40,6 +41,6 @@ Vitest tests live alongside the source; there is no `npm test` script. Feature w
 
 ## Development status
 
-Phases 1-5 are owner-confirmed completed milestones with implementations present in source. The daily meal calorie planner remains a pending Phase 5 enhancement. Phase 6 now has local durable idempotency, distributed limits/cooldowns/concurrency, bounded fallback, kill switches, and a disabled real Groq text adapter. Gemini is the only production registration; AI execution defaults disabled until approved migration/configuration. Paid execution is blocked. The AI Fitness Coach remains Phase 7 with a separately proposed allowance. Read [Phase 6 operations](docs/phase-6-operations.md) before configuring AI: conservative token reservations may exceed free-tier quotas, replay cleanup requires scheduling, and live activation is not approved. See `PROJECT_CONTEXT.md` for verified checks and remaining limitations.
+Phases 1-5 are owner-confirmed completed milestones with implementations present in source. The daily meal calorie planner remains a pending Phase 5 enhancement. Phase 6 now has local durable idempotency, distributed limits/cooldowns/concurrency, bounded fallback, kill switches, and a disabled real Groq text adapter. Gemini is the only production registration; AI execution defaults disabled until approved migration/configuration. Paid execution is blocked. The AI Fitness Coach remains Phase 7 with a separately proposed allowance. Read [Phase 6 operations](docs/phase-6-operations.md) before configuring AI: Gemini now uses a conservative request-size estimate with a fixed output cap; actual account quotas and staging quality still require verification. Groq retains its disabled full-model reservation, replay cleanup requires scheduling, and live activation is not approved. See `PROJECT_CONTEXT.md` for verified checks and remaining limitations.
 
 Do not commit, push, deploy, modify production Supabase schemas/data, or make paid API calls without explicit approval. Preserve unrelated changes and untracked files.

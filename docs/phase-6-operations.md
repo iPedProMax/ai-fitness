@@ -71,13 +71,48 @@ Groq remains disabled: its UTC application day cap must be reconciled with its
 account-specific reset/rolling-window semantics before activation. Provider 429s
 remain possible at fixed-window boundaries or when another app uses the account.
 
-Token reservations deliberately use each fixed model's full input/context plus
-maximum output ceiling: Gemini 1,114,112; Groq 196,608. This covers images and
-reasoning without claiming an unverified token estimate. It is conservative and
-can reject every request on a smaller free-tier token limit. **Do not increase a
-configured quota above the actual account allowance to work around this.** A
-verified exact-count/output-bound strategy needs review before practical use on
-those accounts. Model changes must update/reverify these server bounds together.
+Gemini now uses a conservative per-request reservation instead of the original
+1,114,112-token full-model ceiling. The shared server policy reserves:
+
+`ceil((serialized text/schema UTF-8 bytes + image count * 1,120) * 1.25) + 2,048 + 16,384`
+
+Text includes all prompt parts and the response schema, including Unicode and JSON
+escaping. One token per byte is intentionally conservative compared with Google's
+approximately four characters per text token; the 25% margin and 2,048 extra tokens
+allow for tokenization/format overhead. Image base64 byte length is transport size,
+not an image token count. The adapter explicitly pins `resolution: "high"`, for
+which Google documents a 1,120-token maximum per Gemini 3 image. Existing ten-image
+support, formats, prompts, schemas, and clarification arithmetic are preserved.
+
+The adapter enforces `generation_config.max_output_tokens=16384`, which Google
+documents as including both thinking and visible output. This generous application
+cap is below the model's 65,536-token maximum. A response marked `incomplete` is
+rejected, even if its text happens to parse as JSON; it is not retried or sent to a
+fallback. Output exceeding this cap can therefore fail instead of returning a
+partial nutrition result. Live quality/truncation rates still require approved
+staging verification; no model call was made for this change.
+
+The estimated input reservation must fit 131,072 tokens, below the model's
+1,048,576 input limit; larger inputs are rejected with 413 before an outbound
+attempt, never silently clamped or truncated. The existing admission-credit policy
+is unchanged, so a later oversized-input rejection can retain its one credit.
+Normal prompt/schema/ten-image fixtures now fit a 100,000-token shared policy in
+local HTTP/SQL tests. Reservations grow with actual text/schema/image inputs and
+remain consumed on errors/timeouts and counted in the shared database windows.
+
+This is a **conservative estimate, not an exact tokenizer or guaranteed billing
+upper bound**. No `countTokens` API call, quota inflation, token refund, or database
+schema change was added. Paid execution stays blocked; free-tier eligibility and
+actual request/token caps must still be verified before enabling calls. Google’s
+guides for [tokens](https://ai.google.dev/gemini-api/docs/tokens),
+[image resolution](https://ai.google.dev/gemini-api/docs/media-resolution), and
+[thinking/output limits](https://ai.google.dev/gemini-api/docs/thinking) were checked
+on 2026-10-15. Constants are shared by reservation and transport; changing the
+model/resolution/output policy requires re-verification together.
+
+Groq remains disabled/unregistered and retains its old 196,608-token full-model
+reservation. That still exceeds its published free-plan TPM and is not ready for
+activation. **Never raise configured quotas above actual account allowances.**
 
 All paid execution is rejected, even if the database `paid_enabled` toggle is set.
 Only explicitly verified free-tier policies with zero per-attempt cost are
@@ -120,29 +155,31 @@ Official sources checked on 2026-10-15:
   text/image structured-output model, advertised free tier, and Pacific RPD reset.
   Published availability is not verification of this project's billing tier.
 
-## Failed-request credit policy: unchanged, decision pending
+## Failed-request credit policy: local pre-dispatch refund (NOT activated)
 
-Current behavior charges once on durable admission, before the provider call.
-Later model failures, cancellation, timeouts, postprocessing failures, global
-capacity rejection, or interrupted finalization retain that credit. Replays never
-charge again. This preserves the existing charge-before-call policy, including its
-unfairness when the system rejects a request after admission but before dispatch.
-Validation, missing provider configuration, disabled admission, authentication
-failure, or failed admission before transaction commit consume no new credit.
+The local draft migration now restores a user credit when the final result is
+an HTTP error (4xx/5xx) **and no provider attempt was ever approved** for that
+request. Examples: exhausted shared provider limits, cooldown/concurrency
+rejection, malformed oversized prompt after admission, and no compatible
+provider. The refund occurs in the same atomic transaction as durable final
+response persistence. A retry of the same idempotency key replays the stored
+error without charging or refunding again. The credit returns to the request's
+original `Asia/Manila` usage date, not the current calendar date.
 
-Options for a separately approved change:
+This deliberately does **not** refund a failed request after any provider
+attempt reservation. That includes upstream failures, uncertain timeouts,
+interrupted finalization, and postprocessing errors: the external service may
+have executed. This is conservative against unlimited costly retries. It
+also does not refund if durable finalization itself fails; credits remain
+held until a separately reviewed recovery design is implemented. An approved
+attempt that fails in provider-side preflight is conservatively charged.
 
-1. Keep admission charging: simplest and resistant to abuse, but users pay for
-   service failures.
-2. **Recommended:** refund failures proven to occur before any outbound attempt,
-   and consider verified provider-service failures under an abuse-limited policy.
-   Refunds must be atomic, at most once, reference the original Manila usage day,
-   and preserve replay/tombstone state. Never infer a refund from a timeout alone.
-3. Charge only validated success: friendlier, but repeated failed model calls can
-   consume unbounded provider resources unless a separate failure/attempt allowance
-   is designed. This needs explicit approval and distributed accounting changes.
-
-No refunds or failure-credit policy change were implemented.
+This change only updates the local, previously unapplied
+`20261015_ai_request_control.sql` draft and its PGlite tests. It has **not**
+been applied to any database or activated. If the original migration was
+already applied anywhere, do not reapply it or assume a modified local file
+will update that database; write a separate reviewed additive migration.
+The user should approve this credit policy before deployment.
 
 ## Activation requires owner review and approval
 
@@ -178,10 +215,10 @@ Verify Gemini free-only account eligibility and model access. Set positive
 `requests_per_minute`, `requests_per_day`, `tokens_per_minute`, `tokens_per_day`,
 and `max_concurrent` within actual shared account limits. Leave monetary budgets
 zero, `paid_enabled=false`, `cost_per_attempt_micros=0`, and Groq disabled. Set
-`free_tier_verified=true` only after account verification. A Gemini call currently
-needs room for 1,114,112 reserved tokens in both token windows: if actual limits
-cannot accommodate that, activation is blocked until reviewed counting changes;
-do not increase policy limits beyond the real allowance.
+`free_tier_verified=true` only after account verification. Both token windows must
+have room for the actual Gemini per-request reservation described above. Verify
+representative photos/text/refinements fit the account's real limits; if they do
+not, leave execution disabled rather than increase limits beyond real allowances.
 
 Confirm Gemini-only photo (including existing image formats/multiple images),
 text, AI refinement, deterministic free clarification, result validation, and
@@ -210,8 +247,9 @@ authorizes those production actions now.
    execution identity in a future infrastructure review; this release uses only
    service-role-only control RPCs and does not expose the key to browser code.
 4. Verify actual account/model availability, free-only billing, account limits,
-   data retention/privacy terms, quality, and workable conservative token limits.
-   Resolve counting limitations before enabling any affected free-tier account.
+   data retention/privacy terms, quality, and workable per-request token limits.
+   Include the 16,384-token output cap and incomplete-response handling in staging
+   checks. Exact counting is not implemented; Groq's counting blocker remains.
 5. Set database request/token/in-flight limits and free-tier verification explicitly;
    enable Gemini/runtime policy and `AI_ENABLED=true` only after approved testing.
    Setting environment variables alone cannot bypass disabled database policy.
@@ -224,3 +262,7 @@ authorizes those production actions now.
    row-lock serialization favors safety over high throughput at current scale.
 
 No live database, provider, deployment, or paid API was used for verification.
+
+## Disabled Cloudflare foundation (2026-10-16)
+
+A server-only Llama 4 Scout adapter and private environment reader are prepared. They are not registered or enabled; the current distributed guard rejects this provider until Neuron accounting exists. Its initial app policy accepts one photo, and never drops extra photos. See [setup and activation gates](cloudflare-workers-ai-setup.md) for local variable names and official source checks. No key was read or provisioned, and no model, database, or activation call occurred. The Gemini token reservation fix remains preserved and uncommitted.
