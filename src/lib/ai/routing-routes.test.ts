@@ -26,7 +26,7 @@ function photoRequest(count = 1) {
 }
 function textRequest(description = "100 g cooked rice") {
   return new Request("http://localhost/api/food/text", { method: "POST",
-    body: JSON.stringify({ description, provider: "unapproved", model: "unapproved" }) });
+    body: JSON.stringify({ description, model: "gemini" }) });
 }
 function refineRequest() {
   return new Request("http://localhost/api/food/refine", { method: "POST", body: JSON.stringify({
@@ -95,10 +95,10 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
       const response = await route.handler(route.request());
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({
-        error: "No compatible AI provider is available for this request.", code: "AI_NO_COMPATIBLE_PROVIDER",
+        error: "This AI model is not enabled yet. Choose another model.", code: "AI_MODEL_UNAVAILABLE",
       });
       expect(disabled.generate).not.toHaveBeenCalled();
-      expect(reserve).toHaveBeenCalledOnce();
+      expect(reserve).not.toHaveBeenCalled();
     });
   }
 

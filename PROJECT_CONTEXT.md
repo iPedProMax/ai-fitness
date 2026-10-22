@@ -140,3 +140,25 @@ migration state is not verified: if the original request-control migration was
 applied, do **not** rerun an edited create migration; create and review a
 separate additive migration instead. Owner approval remains required for any
 real database change, push, release, or production activation.
+
+## 2026-10-22 product direction — explicit model choice (pending application)
+
+Supersedes the historical automatic-routing requirement described above. The
+user wants a Duck.ai-style AI model selector: users choose one provider; no
+silent fallback. An unavailable model is disabled, with a reason such as
+"Limit reached" only when server-side evidence supports it. The same 20
+analysis / 60 refinement shared allowance applies across all models. Seven
+provider options are planned, but only compatible verified-free models may
+become active. Manual food/exercise entry remains free. The first local patch
+adds a guarded model selector, server-side chosen-provider validation before
+credit reservation, and browser preference. Gemini remains the sole registered
+runtime provider; other options are disabled pending tested adapters, safe
+quota status and activation. No API, database, or production configuration
+changes are included. See docs/phase-6-user-model-selection.md.
+
+Latest confirmed local Git checkpoint from conversation: `804bdaa` on
+`feature/supabase-auth`, 431 Vitest tests and Next.js build passed at an
+earlier checkpoint; real multi-connection PostgreSQL concurrency verification
+passed; staging Supabase private RPC responded. This selector patch has **not**
+been applied on Windows or independently Vitest/build-verified in this sandbox.
+Preserve unrelated untracked `src/app/auth/actions.ts.bak` and `t run`.

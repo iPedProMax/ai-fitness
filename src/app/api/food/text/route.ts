@@ -1,7 +1,7 @@
 import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { getAiProvider } from "@/lib/ai/provider";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
 import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
@@ -26,10 +26,11 @@ async function handlePost(request: Request) {
       { status: 400 }
     );
   }
-  const provider = getAiProvider();
-  if (!provider) {
-    return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
-  }
+  const rawModel = body !== null && typeof body === "object" ?
+    (body as Record<string, unknown>).model : undefined;
+  const chosen = selectRequestedAiModel(rawModel, 0);
+  if (chosen.error) return chosen.error;
+  const provider = chosen.provider;
   try {
     const quotaError = await reserveAiUsage("analysis");
     if (quotaError) return quotaError;

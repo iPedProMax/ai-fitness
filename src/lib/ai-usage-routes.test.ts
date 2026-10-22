@@ -106,8 +106,11 @@ describe("AI quota integration boundaries", () => {
     it(`${route.label} missing configuration spends no credits and makes no provider call`, async () => {
       vi.stubEnv("GEMINI_API_KEY", "");
       const response = await route.handler(route.request());
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({ error: "Gemini API key is not configured." });
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        error: "This AI model is not enabled yet. Choose another model.",
+        code: "AI_MODEL_UNAVAILABLE",
+      });
       expect(reserveMock).not.toHaveBeenCalled();
       expect(geminiMock).not.toHaveBeenCalled();
     });

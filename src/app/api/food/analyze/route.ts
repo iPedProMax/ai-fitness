@@ -1,7 +1,7 @@
 import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { getAiProvider } from "@/lib/ai/provider";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
 import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import type { AiImageMimeType, AiInputPart } from "@/lib/ai/types";
 import { NextResponse } from "next/server";
@@ -394,19 +394,9 @@ async function handlePost(
       }
     }
 
-    const provider = getAiProvider();
-
-    if (!provider) {
-      return NextResponse.json(
-        {
-          error:
-            "Gemini API key is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+    const chosen = selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
+    if (chosen.error) return chosen.error;
+    const provider = chosen.provider;
 
     const quotaError = await reserveAiUsage("analysis");
     if (quotaError) return quotaError;

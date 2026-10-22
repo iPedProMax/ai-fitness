@@ -1,4 +1,4 @@
-import { submitAiRequest, type AiSubmissionOptions } from "./ai-submission";
+import { submitAiRequest, foodApiError, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -38,6 +38,7 @@ export async function analyzeFood(
   images.forEach((image) => {
     formData.append("images", image);
   });
+  if (options?.modelId) formData.append("model", options.modelId);
 
   const response = await submitAiRequest(
     "/api/food/analyze",
@@ -50,10 +51,7 @@ export async function analyzeFood(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.error ??
-        "Food analysis failed."
-    );
+    throw foodApiError(data, "Food analysis failed.");
   }
 
   return foodAnalysisSchema.parse(

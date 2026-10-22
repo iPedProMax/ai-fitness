@@ -1,7 +1,7 @@
 import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
-import { getAiProvider } from "@/lib/ai/provider";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
 import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -18,6 +18,7 @@ const refineRequestSchema = z.object({
   analysis: foodAnalysisSchema,
   clarificationId: z.string().min(1),
   answer: z.string().min(1),
+  model: z.string().optional(),
 });
 
 const followUpClarificationSchema =
@@ -447,19 +448,9 @@ async function handlePost(
      * final arithmetic.
      */
 
-    const provider = getAiProvider();
-
-    if (!provider) {
-      return NextResponse.json(
-        {
-          error:
-            "Gemini API key is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+    const chosen = selectRequestedAiModel(requestResult.data.model, 0);
+    if (chosen.error) return chosen.error;
+    const provider = chosen.provider;
 
     const quotaError = await reserveAiUsage("refinement");
     if (quotaError) return quotaError;

@@ -1,6 +1,16 @@
 /** A logical submission keeps one key across a network retry. Callers can retain
  * the key explicitly for a later retry; deliberate new submissions use new keys. */
-export type AiSubmissionOptions = { idempotencyKey?: string };
+import type { AiModelId } from "./ai/model-catalog";
+export type AiSubmissionOptions = { idempotencyKey?: string; modelId?: AiModelId };
+export class AiHttpError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = "AiHttpError";
+  }
+}
+export function foodApiError(payload: { error?: string; code?: string }, fallback: string) {
+  return new AiHttpError(payload.error || fallback, payload.code);
+}
 export async function submitAiRequest(url: string, init: RequestInit, options: AiSubmissionOptions = {}) {
   const key = options.idempotencyKey ?? crypto.randomUUID();
   const headers = new Headers(init.headers);

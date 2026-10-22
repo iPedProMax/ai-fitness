@@ -41,7 +41,14 @@ export function isTransientProviderFailure(error: unknown): boolean {
 
 /** Only sanitized router errors become public; existing route errors stay intact. */
 export function aiRoutingErrorResponse(error: unknown): NextResponse | null {
-  if (!(error instanceof AiRoutingError)) return null;
+  // A provider's explicit HTTP 429 is a known capacity/rate-limit response,
+  // never a signal to silently choose another model.
+  if (!(error instanceof AiRoutingError)) {
+    const status = error && typeof error === "object" && "status" in error ? error.status :
+      error && typeof error === "object" && "statusCode" in error ? error.statusCode : undefined;
+    if (status === 429) return aiRoutingErrorResponse(new AiRoutingError("PROVIDER_LIMITED"));
+    return null;
+  }
   const status = error.code === "INPUT_TOO_LARGE" ? 413 : error.code === "TIMEOUT" ? 504 : error.code === "CANCELLED" ? 408 : 503;
   return NextResponse.json({ error: error.message, code: `AI_${error.code}` }, {
     status, headers: { "Cache-Control": "private, no-store", ...(error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds) } : {}) },

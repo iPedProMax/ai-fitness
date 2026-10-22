@@ -1,4 +1,4 @@
-import { submitAiRequest, type AiSubmissionOptions } from "./ai-submission";
+import { submitAiRequest, foodApiError, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -19,15 +19,14 @@ export async function refineFoodAnalysis(
       analysis,
       clarificationId,
       answer,
+      model: options?.modelId,
     }),
   }, options);
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.error ?? "Failed to refine food analysis."
-    );
+    throw foodApiError(data, "Failed to refine food analysis.");
   }
 
   return foodAnalysisSchema.parse(data);

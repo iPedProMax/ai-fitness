@@ -6,6 +6,7 @@ import type { FoodAnalysis } from "@/lib/food-analysis";
 import { analyzeFoodText } from "@/lib/analyze-food-text";
 import { makeManualFoodAnalysis, type ManualFoodInput } from "@/lib/manual-food";
 import { foodEmoji } from "@/lib/food-emoji";
+import type { AiModelId } from "@/lib/ai/model-catalog";
 
 function emptyItem(): ManualFoodInput {
   return { name: "", grams: "", calories: "", protein: "", carbs: "", fat: "" };
@@ -47,9 +48,15 @@ export function fillMissingFromAi(
   return [...filled, ...leftover];
 }
 
-type Props = { onResult: (result: FoodAnalysis) => void; onReset: () => void };
+type Props = {
+  onResult: (result: FoodAnalysis) => void;
+  onReset: () => void;
+  modelId?: AiModelId;
+  modelUsable?: boolean;
+  onProviderLimit?: (error: unknown) => void;
+};
 
-export function LogFoodPanel({ onResult, onReset }: Props) {
+export function LogFoodPanel({ onResult, onReset, modelId = "gemini", modelUsable = true, onProviderLimit }: Props) {
   const [items, setItems] = useState<ManualFoodInput[]>([emptyItem()]);
   const [description, setDescription] = useState("");
   const [aiAssisted, setAiAssisted] = useState(false);
@@ -73,7 +80,7 @@ export function LogFoodPanel({ onResult, onReset }: Props) {
   }
 
   async function handleAi() {
-    if (working) return;
+    if (working || !modelUsable) return;
     const prompt = description.trim() || items.map((item) =>
       [item.name.trim(), item.grams.trim() ? `${item.grams.trim()} g` : ""].filter(Boolean).join(", ")
     ).filter(Boolean).join("; ");
@@ -84,7 +91,7 @@ export function LogFoodPanel({ onResult, onReset }: Props) {
     setWorking(true);
     setError(null);
     try {
-      const estimate = await analyzeFoodText(prompt);
+      const estimate = await analyzeFoodText(prompt, { modelId });
       if (estimate.foods.length === 0) {
         throw new Error("AI did not return a food estimate.");
       }
@@ -94,6 +101,7 @@ export function LogFoodPanel({ onResult, onReset }: Props) {
       setItems(next);
       setAiAssisted(true);
     } catch (issue) {
+      onProviderLimit?.(issue);
       setError(issue instanceof Error ? issue.message : "AI estimation failed.");
     } finally {
       setWorking(false);
@@ -113,7 +121,7 @@ export function LogFoodPanel({ onResult, onReset }: Props) {
             placeholder="e.g. 200 g grilled bangus with one cup of rice"
             className={inputClass} />
         </label>
-        <button type="button" onClick={handleAi} disabled={working}
+        <button type="button" onClick={handleAi} disabled={working || !modelUsable}
           className="w-full rounded-xl border border-emerald-400 bg-white px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60">
           {working ? "Estimating..." : "✨ Estimate nutrition with AI"}
         </button>

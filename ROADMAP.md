@@ -44,3 +44,18 @@ new additive migration. Focused PostgreSQL/PGlite and HTTP tests, full Vitest,
 TypeScript, build, and independent-connection PostgreSQL testing remain required.
 No live provider is activated; Cloudflare/Groq remain disabled; Phase 7 remains
 planned and must not start before Phase 6 acceptance.
+
+## Phase 6 user-selected model update (2026-10-22; pending local application)
+
+The user replaced automatic hierarchical fallback with explicit model selection,
+like Duck.ai. Show all seven planned providers, but disable unavailable,
+unconfigured, unsupported, and capacity-limited choices. Never silently fall
+back to another model. Keep one shared daily 20-analysis allowance and separate
+60-refinement allowance across providers. Only verified free-tier providers may
+execute; no paid API requests.
+
+Initial UI/server selector patch adds seven visible choices and strict dispatch
+for the sole currently registered provider (Gemini). Cloudflare/Groq remain
+unregistered; OpenRouter/Mistral/Hugging Face/Cerebras are pending. Verified
+server-side live quota availability and additional transport registrations are
+separate work. Run local verification before committing or deploying.
