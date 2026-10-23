@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { controlRequest, type ControlResult } from "./control-store";
 import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
+import { isGeminiModelId } from "./model-catalog";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -124,7 +125,7 @@ export function guardProvider(provider: AiProvider): AiProvider {
       throw new AiRoutingError("ACCOUNTING_UNAVAILABLE");
     }
     try {
-      const tokens = provider.id === "gemini" ? geminiTokenReservation(request) : tokenCeilings[provider.id];
+      const tokens = isGeminiModelId(provider.id) ? geminiTokenReservation(request) : tokenCeilings[provider.id];
       if (!tokens) throw new Error("Unaccounted model");
       const result = await controlRequest({ p_operation: "attempt", p_user_id: context.userId,
         p_key: context.key, p_claim: context.claim, p_provider: provider.id, p_tokens: tokens });

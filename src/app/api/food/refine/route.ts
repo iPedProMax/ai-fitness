@@ -448,7 +448,7 @@ async function handlePost(
      * final arithmetic.
      */
 
-    const chosen = selectRequestedAiModel(requestResult.data.model, 0);
+    const chosen = await selectRequestedAiModel(requestResult.data.model, 0);
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
 

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, reserve, provider } = vi.hoisted(() => ({
-  auth: vi.fn(), reserve: vi.fn(), provider: vi.fn(),
+const { auth, reserve, provider, readPolicies } = vi.hoisted(() => ({
+  auth: vi.fn(), reserve: vi.fn(), provider: vi.fn(), readPolicies: vi.fn(),
 }));
 vi.mock("@/lib/food-api-auth", () => ({ requireFoodApiAuth: auth }));
 vi.mock("@/lib/ai-usage", () => ({ reserveAiUsage: reserve }));
 vi.mock("./provider", () => ({ getAiProvider: provider }));
+vi.mock("./free-gemini-policy", () => ({ readFreeGeminiPolicies: readPolicies }));
 
 import { POST as analyze } from "@/app/api/food/analyze/route";
 import { POST as text } from "@/app/api/food/text/route";
@@ -43,16 +44,17 @@ describe("user-chosen AI model boundaries", () => {
     auth.mockReset().mockResolvedValue(null);
     reserve.mockReset().mockResolvedValue(null);
     provider.mockReset().mockReturnValue(null);
+    readPolicies.mockReset().mockResolvedValue(new Map());
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("shows all seven choices without exposing credentials or inventing free quota balances", async () => {
+  it("shows seven providers and two additional Gemini models without inventing free quota balances", async () => {
     vi.stubEnv("AI_ENABLED", "true");
     vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
     const response = await models();
     const payload = await response.json();
     expect(response.status).toBe(200);
-    expect(payload.models).toHaveLength(7);
+    expect(payload.models).toHaveLength(9);
     expect(payload.models.map((m: {id:string}) => m.id)).toEqual(aiModelCatalog.map(m => m.id));
     expect(payload.models.find((m: {id:string}) => m.id === "gemini").enabled).toBe(true);
     expect(payload.models.filter((m: {id:string;enabled:boolean}) => m.id !== "gemini").every((m:{enabled:boolean})=>!m.enabled)).toBe(true);
@@ -85,6 +87,34 @@ describe("user-chosen AI model boundaries", () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
     expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it("denies new Gemini models before credits when their separate policy is inactive", async () => {
+    vi.stubEnv("AI_ENABLED", "true");
+    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
+    const response = await analyze(imageRequest("gemini-3.8-flash"));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("dispatches the exact explicitly selected new Gemini model when policy permits", async () => {
+    vi.stubEnv("AI_ENABLED", "true");
+    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
+    readPolicies.mockResolvedValue(new Map([
+      ["gemini-3.8-flash", { enabled: true, reason: null }],
+    ]));
+    const responseText = JSON.stringify(food);
+    provider.mockReturnValue({
+      id: "gemini-3.8-flash", enabled: true, available: true,
+      capabilities: {text:true,vision:true,maxImages:10,structuredJson:true},
+      generate: vi.fn().mockResolvedValue({ outputText: responseText }),
+    });
+    const response = await text(textRequest("gemini-3.8-flash"));
+    expect(response.status).toBe(200);
+    expect(provider).toHaveBeenCalledExactlyOnceWith("gemini-3.8-flash");
+    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
   });
 
   it("does not auto-switch to Gemini when a selected text provider is disabled", async () => {

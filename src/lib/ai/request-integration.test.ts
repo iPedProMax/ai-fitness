@@ -33,6 +33,7 @@ beforeAll(async()=>{
   await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql as 'select null::uuid';");
   await db.exec(readFileSync("supabase/migrations/20261011_create_ai_daily_usage.sql","utf8"));
   await db.exec(readFileSync("supabase/migrations/20261015_ai_request_control.sql","utf8"));
+  await db.exec(readFileSync("supabase/migrations/20261023_distinct_free_gemini_models.sql","utf8"));
   await db.query("insert into auth.users values ($1)",[user]);
 },30_000);
 beforeEach(async()=>{

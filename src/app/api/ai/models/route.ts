@@ -6,7 +6,7 @@ import { getAiModelStatuses } from "@/lib/ai/model-status";
 export async function GET() {
   const denied = await requireFoodApiAuth();
   if (denied) return denied;
-  return NextResponse.json({ models: getAiModelStatuses() }, {
+  return NextResponse.json({ models: await getAiModelStatuses() }, {
     headers: { "Cache-Control": "private, no-store" },
   });
 }

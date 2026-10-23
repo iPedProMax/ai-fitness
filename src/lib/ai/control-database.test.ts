@@ -34,6 +34,7 @@ beforeAll(async () => {
   await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql as 'select null::uuid';");
   await db.exec(readFileSync("supabase/migrations/20261011_create_ai_daily_usage.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261015_ai_request_control.sql", "utf8"));
+  await db.exec(readFileSync("supabase/migrations/20261023_distinct_free_gemini_models.sql", "utf8"));
   await db.query("insert into auth.users values ($1),($2)", [user, otherUser]);
 }, 30_000);
 beforeEach(async () => {
@@ -208,5 +209,54 @@ describe("durable admission and distributed provider accounting", () => {
     expect(await begin()).toHaveProperty("claim");
     await expect(db.query("select * from public.ai_requests")).rejects.toThrow(/permission denied/);
     await db.exec("reset role");
+  });
+});
+
+
+describe("distinct Gemini model quotas (staging migration)", () => {
+  it("adds new models disabled by default in the migration", async () => {
+    // Verify the actual migration's structural names and no paid costs.
+    const rows = (await db.query<{ provider: string }>(
+      "select provider from public.ai_provider_policy where provider like 'gemini%' order by provider"
+    )).rows.map(row => row.provider);
+    expect(rows).toEqual(["gemini", "gemini-3.6-flash", "gemini-3.8-flash"]);
+  });
+
+  it("counts each Gemini model independently while sharing one daily user cap", async () => {
+    await db.exec("update public.ai_provider_policy set requests_per_day=1 where provider in ('gemini-3.6-flash','gemini-3.8-flash')");
+    const keyA=randomUUID(), claimA=await claim(keyA);
+    expect(await attempt(keyA,claimA,"gemini-3.8-flash")).toEqual({ok:true});
+    const keyB=randomUUID(), claimB=await claim(keyB);
+    expect(await attempt(keyB,claimB,"gemini-3.6-flash")).toEqual({ok:true});
+    const keyC=randomUUID(), claimC=await claim(keyC);
+    expect(await attempt(keyC,claimC,"gemini-3.8-flash")).toMatchObject({code:"AI_GLOBAL_LIMIT"});
+    expect(await count()).toBe(3); // pre-dispatch credit refunded on FINISH
+    const rows=(await db.query<{ provider:string; requests:number }>(
+      "select provider,requests::int as requests from public.ai_provider_usage where window_kind='day' and provider like 'gemini-%' order by provider"
+    )).rows;
+    expect(rows).toEqual([
+      {provider:"gemini-3.6-flash",requests:1},
+      {provider:"gemini-3.8-flash",requests:1},
+    ]);
+  });
+
+  it("exposes only local limit-status, never exact usage or Google balances", async () => {
+    await db.exec("update public.ai_provider_policy set requests_per_day=1 where provider='gemini-3.8-flash'");
+    const key=randomUUID(), token=await claim(key);
+    expect(await attempt(key,token,"gemini-3.8-flash")).toEqual({ok:true});
+    const result=await db.query<{ models: {id:string;enabled:boolean;reason:string|null}[] }>(
+      "select public.list_free_gemini_models() as models"
+    );
+    const item=result.rows[0].models.find(row=>row.id==="gemini-3.8-flash");
+    expect(item).toMatchObject({enabled:false,reason:"Application daily limit reached"});
+    expect(JSON.stringify(result.rows[0])).not.toContain("requests");
+  });
+
+  it("uses Pacific midnight for each Gemini model's daily window", async () => {
+    const rows=(await db.query<{ model:string; bucket:string }>(
+      "select provider as model, public.ai_provider_window_start(provider,'day','2026-10-23T08:00:00Z'::timestamptz)::text as bucket from public.ai_provider_policy where provider like 'gemini%' order by provider"
+    )).rows;
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map(row=>row.bucket)).size).toBe(1);
   });
 });

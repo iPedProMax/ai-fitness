@@ -394,7 +394,7 @@ async function handlePost(
       }
     }
 
-    const chosen = selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
+    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
 

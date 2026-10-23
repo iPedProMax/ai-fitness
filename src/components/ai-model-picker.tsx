@@ -55,7 +55,7 @@ export function AiModelPicker({ modelId, onChange, onUsableChange, photoCount,
         Choose your AI model
       </label>
       <p className="mt-1 text-xs text-slate-600">
-        You choose. We never switch providers without asking. Only verified free models can run.
+        You choose. We never switch models without asking. Only verified free models can run.
       </p>
       <select id="ai-model-selection" value={modelId} disabled={disabled || loadError || !models}
         onChange={event => onChange(event.target.value as AiModelId)}

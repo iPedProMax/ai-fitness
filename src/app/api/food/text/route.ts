@@ -28,7 +28,7 @@ async function handlePost(request: Request) {
   }
   const rawModel = body !== null && typeof body === "object" ?
     (body as Record<string, unknown>).model : undefined;
-  const chosen = selectRequestedAiModel(rawModel, 0);
+  const chosen = await selectRequestedAiModel(rawModel, 0);
   if (chosen.error) return chosen.error;
   const provider = chosen.provider;
   try {
