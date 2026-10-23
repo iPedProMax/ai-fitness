@@ -28,7 +28,8 @@ export function createGeminiProvider(apiKey: string): AiProvider {
           schema: responseSchema,
         },
         generation_config: { max_output_tokens: GEMINI_MAX_OUTPUT_TOKENS },
-      }, { signal, timeout_ms: 20_000, retries: { strategy: "none" } });
+        store: false,
+      }, { signal, timeout_ms: 50_000, retries: { strategy: "none" } });
 
       if (interaction.status === "incomplete") throw new Error("AI response incomplete.");
       // Leave empty output, JSON parsing, Zod checks, and errors to the routes.

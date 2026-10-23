@@ -31,6 +31,7 @@ describe("real Gemini SDK with network mocked", () => {
     const [input, init] = fetchMock.mock.calls[0];
     const body = input instanceof Request ? await input.clone().json() : JSON.parse(init?.body as string);
     expect(body.generation_config).toEqual({ max_output_tokens: 16_384 });
+    expect(body.store).toBe(false);
     expect(body.input[1]).toMatchObject({ type: "image", resolution: "high", mime_type: "image/png" });
   });
   it("falls back for a genuine SDK-wrapped network failure", async () => {

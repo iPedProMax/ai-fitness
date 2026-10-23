@@ -9,7 +9,7 @@ export type RoutingOptions = {
   totalTimeoutMs?: number;
 };
 
-const limits = { maxAttempts: 2, attemptTimeoutMs: 20_000, totalTimeoutMs: 45_000 };
+const limits = { maxAttempts: 2, attemptTimeoutMs: 50_000, totalTimeoutMs: 60_000 };
 
 export function selectCompatibleProviders(
   providers: readonly AiProvider[], request: AiGenerationRequest,

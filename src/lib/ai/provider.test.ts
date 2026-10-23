@@ -78,7 +78,8 @@ describe("server AI provider foundation", () => {
       ],
       response_format: { type: "text", mime_type: "application/json", schema },
       generation_config: { max_output_tokens: 16_384 },
-    }, { signal: expect.any(AbortSignal), timeout_ms: 20_000, retries: { strategy: "none" } });
+      store: false,
+    }, { signal: expect.any(AbortSignal), timeout_ms: 50_000, retries: { strategy: "none" } });
     expect(result).toEqual({ outputText });
   });
 
