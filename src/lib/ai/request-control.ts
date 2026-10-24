@@ -152,6 +152,27 @@ export function guardProvider(provider: AiProvider): AiProvider {
         : error && typeof error === "object" && "status" in error && typeof error.status === "number" ? error.status
         : error && typeof error === "object" && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 520;
       if (request.signal?.aborted) status = 504;
+      // Safe diagnostics only: never log model prompts, image data, API keys, or raw SDK errors.
+      if (process.env.NODE_ENV !== "test") {
+        const upstreamStatus = error && typeof error === "object"
+          ? ("status" in error && typeof error.status === "number" ? error.status
+            : "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : null)
+          : null;
+        const typeName = error instanceof AiRoutingError ? error.code
+          : error && typeof error === "object" && "name" in error &&
+            typeof error.name === "string" &&
+            ["APIError", "ConnectionError", "RequestTimeoutError", "APIConnectionError", "APIConnectionTimeoutError", "AbortError"].includes(error.name)
+            ? error.name : "Other";
+        // Next.js's development log can serialize separate object arguments as {}.
+        // Emit one JSON-formatted STRING containing only allowlisted, non-sensitive fields.
+        console.warn("[AI_PROVIDER_DIAGNOSTIC] " + JSON.stringify({
+          model: provider.id,
+          upstreamStatus,
+          settlementStatus: status,
+          errorType: typeName,
+          aborted: request.signal?.aborted === true,
+        }));
+      }
     }
     try {
       const result = await controlRequest({ p_operation: "settle", p_user_id: context.userId,

@@ -108,7 +108,7 @@ describe("AI quota integration boundaries", () => {
       const response = await route.handler(route.request());
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({
-        error: "This AI model is not enabled yet. Choose another model.",
+        error: "AI analysis is currently unavailable.",
         code: "AI_MODEL_UNAVAILABLE",
       });
       expect(reserveMock).not.toHaveBeenCalled();

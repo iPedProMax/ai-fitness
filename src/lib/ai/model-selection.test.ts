@@ -1,18 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { auth, reserve, provider, readPolicies } = vi.hoisted(() => ({
-  auth: vi.fn(), reserve: vi.fn(), provider: vi.fn(), readPolicies: vi.fn(),
+const { auth, reserve, provider } = vi.hoisted(() => ({
+  auth: vi.fn(), reserve: vi.fn(), provider: vi.fn(),
 }));
 vi.mock("@/lib/food-api-auth", () => ({ requireFoodApiAuth: auth }));
 vi.mock("@/lib/ai-usage", () => ({ reserveAiUsage: reserve }));
 vi.mock("./provider", () => ({ getAiProvider: provider }));
-vi.mock("./free-gemini-policy", () => ({ readFreeGeminiPolicies: readPolicies }));
 
 import { POST as analyze } from "@/app/api/food/analyze/route";
 import { POST as text } from "@/app/api/food/text/route";
 import { POST as refine } from "@/app/api/food/refine/route";
-import { GET as models } from "@/app/api/ai/models/route";
-import { aiModelCatalog } from "./model-catalog";
+import { selectRequestedAiModel } from "./selected-model";
 
 function imageRequest(model: string, count = 1) {
   const formData = new FormData();
@@ -39,95 +37,77 @@ function refineRequest(model: string) {
   });
 }
 
-describe("user-chosen AI model boundaries", () => {
-  beforeEach(() => {
-    auth.mockReset().mockResolvedValue(null);
-    reserve.mockReset().mockResolvedValue(null);
-    provider.mockReset().mockReturnValue(null);
-    readPolicies.mockReset().mockResolvedValue(new Map());
-  });
-  afterEach(() => vi.unstubAllEnvs());
+const defaultProvider = {
+  id: "gemini", enabled: true, available: true,
+  capabilities: { text: true, vision: true, maxImages: 10, structuredJson: true },
+  generate: vi.fn(),
+};
 
-  it("shows seven providers and two additional Gemini models without inventing free quota balances", async () => {
-    vi.stubEnv("AI_ENABLED", "true");
-    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
-    const response = await models();
-    const payload = await response.json();
-    expect(response.status).toBe(200);
-    expect(payload.models).toHaveLength(9);
-    expect(payload.models.map((m: {id:string}) => m.id)).toEqual(aiModelCatalog.map(m => m.id));
-    expect(payload.models.find((m: {id:string}) => m.id === "gemini").enabled).toBe(true);
-    expect(payload.models.filter((m: {id:string;enabled:boolean}) => m.id !== "gemini").every((m:{enabled:boolean})=>!m.enabled)).toBe(true);
-    expect(JSON.stringify(payload)).not.toContain("synthetic-key");
-    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+beforeEach(() => {
+  auth.mockReset().mockResolvedValue(null);
+  reserve.mockReset().mockResolvedValue(null);
+  provider.mockReset().mockReturnValue(defaultProvider);
+});
+
+describe("single Gemini model admission", () => {
+  it("uses the existing default when a request omits a model", async () => {
+    const selection = await selectRequestedAiModel(undefined, 1);
+    expect(selection).toMatchObject({ provider: defaultProvider });
+    expect(provider).toHaveBeenCalledExactlyOnceWith("gemini");
   });
 
-  it("does not claim Gemini is available while AI_ENABLED=false", async () => {
-    vi.stubEnv("AI_ENABLED", "false");
-    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
-    const response = await models();
-    expect((await response.json()).models.every((m:{enabled:boolean}) => !m.enabled)).toBe(true);
+  it("allows explicitly supplied legacy default Gemini", async () => {
+    const selection = await selectRequestedAiModel("gemini", 0);
+    expect(selection).toMatchObject({ provider: defaultProvider });
+    expect(provider).toHaveBeenCalledExactlyOnceWith("gemini");
   });
 
-  it.each([
-    ["unknown", 400, "AI_INVALID_MODEL"],
-    ["groq", 422, "AI_MODEL_UNSUPPORTED"],
-    ["cloudflare", 503, "AI_MODEL_UNAVAILABLE"],
-    ["openrouter", 503, "AI_MODEL_UNAVAILABLE"],
-  ])("photo model %s fails safely, before consuming any credit", async (model, status, code) => {
-    const response = await analyze(imageRequest(String(model)));
-    expect(response.status).toBe(status);
-    expect(await response.json()).toMatchObject({ code });
-    expect(reserve).not.toHaveBeenCalled();
-    expect(provider).toHaveBeenCalledTimes(model === "cloudflare" ? 1 : 0);
-  });
-
-  it("rejects a multi-photo request for the one-image Cloudflare adapter", async () => {
-    const response = await analyze(imageRequest("cloudflare", 2));
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
-    expect(reserve).not.toHaveBeenCalled();
-  });
-
-  it("denies new Gemini models before credits when their separate policy is inactive", async () => {
-    vi.stubEnv("AI_ENABLED", "true");
-    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
-    const response = await analyze(imageRequest("gemini-3.8-flash"));
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
-    expect(reserve).not.toHaveBeenCalled();
+  it("rejects unknown model IDs before invoking any provider", async () => {
+    const selection = await selectRequestedAiModel("unknown", 1);
+    expect(selection.error?.status).toBe(400);
+    expect(await selection.error?.json()).toMatchObject({ code: "AI_INVALID_MODEL" });
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("dispatches the exact explicitly selected new Gemini model when policy permits", async () => {
-    vi.stubEnv("AI_ENABLED", "true");
-    vi.stubEnv("GEMINI_API_KEY", "synthetic-key");
-    readPolicies.mockResolvedValue(new Map([
-      ["gemini-3.8-flash", { enabled: true, reason: null }],
-    ]));
-    const responseText = JSON.stringify(food);
-    provider.mockReturnValue({
-      id: "gemini-3.8-flash", enabled: true, available: true,
-      capabilities: {text:true,vision:true,maxImages:10,structuredJson:true},
-      generate: vi.fn().mockResolvedValue({ outputText: responseText }),
-    });
-    const response = await text(textRequest("gemini-3.8-flash"));
-    expect(response.status).toBe(200);
-    expect(provider).toHaveBeenCalledExactlyOnceWith("gemini-3.8-flash");
-    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
-  });
+  it.each(["gemini-3.8-flash", "gemini-3.6-flash", "groq", "cloudflare", "openrouter"])(
+    "blocks previously selectable %s before using provider or credits", async model => {
+      const response = await analyze(imageRequest(model));
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
+      expect(provider).not.toHaveBeenCalled();
+      expect(reserve).not.toHaveBeenCalled();
+    },
+  );
 
-  it("does not auto-switch to Gemini when a selected text provider is disabled", async () => {
-    const response = await text(textRequest("groq"));
+  it("blocks multi-photo requests for an old non-default model", async () => {
+    const response = await analyze(imageRequest("cloudflare", 2));
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
-    expect(provider).toHaveBeenCalledExactlyOnceWith("groq");
     expect(reserve).not.toHaveBeenCalled();
   });
 
-  it("rejects unavailable models for AI clarifications before reserving refinement credits", async () => {
+  it("rejects attempts to choose another model in text analyses", async () => {
+    const response = await text(textRequest("gemini-3.8-flash"));
+    expect(response.status).toBe(503);
+    expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it("rejects attempts to choose another model in refinements", async () => {
     const response = await refine(refineRequest("mistral"));
     expect(response.status).toBe(503);
     expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it("rejects excessive image counts with the normal compatibility error", async () => {
+    const selection = await selectRequestedAiModel("gemini", 11);
+    expect(selection.error?.status).toBe(422);
+    expect(await selection.error?.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("fails closed if the configured default model is unavailable", async () => {
+    provider.mockReturnValue(null);
+    const selection = await selectRequestedAiModel(undefined, 1);
+    expect(selection.error?.status).toBe(503);
+    expect(await selection.error?.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
   });
 });

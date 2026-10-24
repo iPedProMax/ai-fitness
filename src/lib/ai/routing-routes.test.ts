@@ -95,7 +95,7 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
       const response = await route.handler(route.request());
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({
-        error: "This AI model is not enabled yet. Choose another model.", code: "AI_MODEL_UNAVAILABLE",
+        error: "AI analysis is currently unavailable.", code: "AI_MODEL_UNAVAILABLE",
       });
       expect(disabled.generate).not.toHaveBeenCalled();
       expect(reserve).not.toHaveBeenCalled();

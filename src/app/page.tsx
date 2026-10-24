@@ -8,9 +8,9 @@ import {
 
 import { AddMealButton } from "@/components/add-meal-button";
 import { LogFoodPanel } from "@/components/log-food-panel";
-import { AiModelPicker } from "@/components/ai-model-picker";
+
 import { AiHttpError } from "@/lib/ai-submission";
-import { isAiModelId, type AiModelId } from "@/lib/ai/model-catalog";
+
 import { foodEmoji } from "@/lib/food-emoji";
 import { ClarificationCard } from "@/components/clarification-card";
 import {
@@ -84,25 +84,6 @@ function ImageThumbnail({
 
 export default function Home() {
   const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
-  const [modelId, setModelId] = useState<AiModelId>("gemini");
-  const [modelUsable, setModelUsable] = useState(false);
-  const [limitedModels, setLimitedModels] = useState<AiModelId[]>([]);
-  useEffect(() => {
-    try {
-      const previous = localStorage.getItem("ai-fitness.preferred-model");
-      if (isAiModelId(previous)) setModelId(previous);
-    } catch { /* Preference storage is optional. */ }
-  }, []);
-  function chooseModel(next: AiModelId) {
-    setModelId(next);
-    resetAnalysis();
-    try { localStorage.setItem("ai-fitness.preferred-model", next); } catch { /* optional */ }
-  }
-  function noticeProviderLimit(error: unknown) {
-    if (error instanceof AiHttpError && error.code === "AI_PROVIDER_LIMITED") {
-      setLimitedModels(current => current.includes(modelId) ? current : [...current, modelId]);
-    }
-  }
   const [
     images,
     setImages,
@@ -301,7 +282,6 @@ export default function Home() {
   async function handleAnalyze() {
     if (
       !hasImages ||
-      !modelUsable ||
       isAnalyzing
     ) {
       return;
@@ -320,15 +300,14 @@ export default function Home() {
       const result =
         await analyzeFood({
           images,
-        }, { modelId });
+        });
 
       setAnalysis(result);
     } catch (error) {
-      noticeProviderLimit(error);
-      console.error(
-        "Food analysis failed:",
-        error
-      );
+      // Expected API errors are already shown inline. Avoid the Next.js dev overlay.
+      if (!(error instanceof AiHttpError)) {
+        console.error("Unexpected food analysis error:", error);
+      }
 
       setError(
         error instanceof Error
@@ -417,7 +396,7 @@ export default function Home() {
           analysis,
           clarificationId,
           answer,
-          { modelId }
+
         );
 
       setAnalysis(refined);
@@ -441,11 +420,10 @@ export default function Home() {
         })
       );
     } catch (error) {
-      noticeProviderLimit(error);
-      console.error(
-        "Food refinement failed:",
-        error
-      );
+      // Expected API errors are already shown inline. Avoid the Next.js dev overlay.
+      if (!(error instanceof AiHttpError)) {
+        console.error("Unexpected food refinement error:", error);
+      }
 
       setSelectedAnswers(
         (current) => {
@@ -529,12 +507,6 @@ export default function Home() {
           <button type="button" aria-pressed={entryMode === "photo"} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📷 Photo Scanner</button>
           <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
         </div>
-
-        <AiModelPicker modelId={modelId} onChange={chooseModel}
-          onUsableChange={setModelUsable}
-          photoCount={entryMode === "photo" ? images.length : 0}
-          temporarilyLimited={limitedModels}
-          disabled={isAnalyzing || Boolean(refiningClarificationId)} />
 
         <div
           ref={uploaderRef}
@@ -719,7 +691,6 @@ export default function Home() {
               }
               disabled={
                 !hasImages ||
-                !modelUsable ||
                 isAnalyzing
               }
               className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -731,8 +702,7 @@ export default function Home() {
           </section>
 
           ) : (
-            <LogFoodPanel modelId={modelId} modelUsable={modelUsable}
-              onProviderLimit={noticeProviderLimit}
+            <LogFoodPanel
               onReset={resetAnalysis} onResult={(result) => {
               setAnalysis(result);
               setAnalysisStarted(true);
