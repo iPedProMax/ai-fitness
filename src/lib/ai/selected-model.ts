@@ -16,7 +16,7 @@ export async function selectRequestedAiModel(rawModel: unknown, imageCount: numb
   if (!Number.isInteger(imageCount) || imageCount < 0 || imageCount > 10) {
     return fail("Too many photos for this AI analysis.", "AI_MODEL_UNSUPPORTED", 422);
   }
-  if ((model === "groq" && imageCount > 3) || (model === "cloudflare" && imageCount > 1)) {
+  if ((model === "groq" && imageCount > 2) || (model === "cloudflare" && imageCount > 1)) {
     return fail("This AI provider cannot process that number of photos.", "AI_MODEL_UNSUPPORTED", 422);
   }
   const provider = getAiProvider(model);

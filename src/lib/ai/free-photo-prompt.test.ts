@@ -17,9 +17,9 @@ const estimatedRequestBytes = (provider: "groq" | "cloudflare", photos: number) 
 };
 
 describe("Free vision provider prompt budgets", () => {
-  it("fits all three Groq photo counts within the conservative 7800-token reservation", () => {
-    for (const photos of [1, 2, 3]) {
-      const reserved = Math.ceil(estimatedRequestBytes("groq", photos) / 3) + photos * 2048 + (photos === 3 ? 512 : 1024) + 256;
+  it("fits both Groq photo counts within the conservative 7800-token reservation", () => {
+    for (const photos of [1, 2]) {
+      const reserved = Math.ceil(estimatedRequestBytes("groq", photos) / 3) + photos * 2048 + 1024 + 256;
       expect(reserved).toBeLessThanOrEqual(7800);
     }
   });

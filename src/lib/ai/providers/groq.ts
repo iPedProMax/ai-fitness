@@ -6,7 +6,7 @@ import type { AiGenerationRequest, AiProvider } from "../types";
 
 // Verified using a live, base64-encoded image test and the official Groq vision docs.
 export const GROQ_MODEL = "qwen/qwen3.8-27b";
-export const GROQ_MAX_IMAGES = 3;
+export const GROQ_MAX_IMAGES = 2;
 export const GROQ_MAX_BODY_BYTES = 19 * 1024 * 1024;
 export function groqCompletionTokens(imageCount: number): number { return imageCount === 3 ? 768 : 1024; }
 // A compact JSON contract leaves room for three photos under Groq Free's 8K TPM.

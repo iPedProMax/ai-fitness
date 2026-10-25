@@ -456,7 +456,9 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            For best results, scan 1-3 foods or drinks at a time. {MAX_IMAGES === 0
+            {providerId === "groq" || providerId === "cloudflare"
+              ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "
+              : "For best results, scan 1-3 foods or drinks at a time. "}{MAX_IMAGES === 0
               ? "This AI currently accepts text entries only."
               : `Add up to ${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}, including labels, packaging, and scale photos.`}
           </p>

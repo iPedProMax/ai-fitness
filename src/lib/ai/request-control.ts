@@ -109,13 +109,13 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
 function extraProviderReservation(id: string, request: AiGenerationRequest): number | null {
   if (id !== "groq" && id !== "cloudflare") return null;
   const imageCount = request.input.filter(part => part.type === "image").length;
-  if (id === "groq" && imageCount > 3) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "groq" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");
   // Conservative approximation, NOT exact model tokenization or Groq billing.
-  // Three 2048-token images nearly exhaust Free-tier 8K TPM; reject before dispatch
+  // Reserve tokens conservatively and reject oversized requests before dispatch
   // if prompt/schema + output headroom cannot fit. Never truncate selected photos.
   const tokens = id === "groq"
     ? Math.ceil(bytes / 3) + imageCount * 2048 + groqCompletionTokens(imageCount) + 256

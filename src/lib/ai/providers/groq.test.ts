@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGroqProvider, GROQ_MODEL, groqCompletionTokens, GROQ_THREE_PHOTO_SCHEMA } from "./groq";
+import { createGroqProvider, GROQ_MODEL, groqCompletionTokens } from "./groq";
 import { isTransientProviderFailure } from "../errors";
 import type { AiGenerationRequest } from "../types";
 
@@ -14,7 +14,7 @@ describe("Groq Qwen vision adapter (mock transport only)",()=>{
   it("defaults disabled, never sends credentials or traffic",async()=>{
     const provider=createGroqProvider("fake");
     expect(provider.enabled).toBe(false);
-    expect(provider.capabilities).toEqual({text:true,vision:true,maxImages:3,structuredJson:true});
+    expect(provider.capabilities).toEqual({text:true,vision:true,maxImages:2,structuredJson:true});
     await expect(provider.generate(request)).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
     expect(transport).not.toHaveBeenCalled();
   });
@@ -26,18 +26,18 @@ describe("Groq Qwen vision adapter (mock transport only)",()=>{
     expect(JSON.parse(init!.body as string)).toEqual({model:GROQ_MODEL,messages:[{role:"user",content:[{type:"text",text:request.input[0].type==="text"?request.input[0].text:""}]}],response_format:{type:"json_schema",json_schema:{name:"nutrition",strict:false,schema:request.responseSchema}},reasoning_effort:"none",max_completion_tokens:1024});
     expect(init?.redirect).toBe("error"); expect(transport).toHaveBeenCalledOnce();
   });
-  it("sends three embedded images, not external links, in one request",async()=>{
+  it("sends two embedded images, not external links, in one request",async()=>{
     transport.mockResolvedValue(ok());
-    await expect(createGroqProvider("fake",true).generate({...request,input:[...request.input,pic,pic,pic]})).resolves.toHaveProperty("outputText");
+    await expect(createGroqProvider("fake",true).generate({...request,input:[...request.input,pic,pic]})).resolves.toHaveProperty("outputText");
     const body=JSON.parse(transport.mock.calls[0][1]!.body as string);
     expect(body.model).toBe(GROQ_MODEL);
-    expect(body.messages[0].content).toHaveLength(4);
+    expect(body.messages[0].content).toHaveLength(3);
     expect(body.messages[0].content[1]).toEqual({type:"image_url",image_url:{url:"data:image/png;base64,iVBORw0KGgo="}});
-    expect(body.max_completion_tokens).toBe(groqCompletionTokens(3));
-    expect(body.response_format.json_schema.schema).toEqual(GROQ_THREE_PHOTO_SCHEMA);
-    expect(groqCompletionTokens(3)).toBe(768);
+    expect(body.max_completion_tokens).toBe(groqCompletionTokens(2));
+    expect(body.response_format.json_schema.schema).toEqual(request.responseSchema);
+    expect(groqCompletionTokens(2)).toBe(1024);
   });
-  it("uses the full schema for one and two images, compact schema for three", async () => {
+  it("uses the full schema for both one and two images", async () => {
     // Return a fresh Response for each fetch; response bodies are single-use streams.
     transport.mockImplementation(async () => ok());
     for (const count of [1, 2]) {
@@ -46,9 +46,9 @@ describe("Groq Qwen vision adapter (mock transport only)",()=>{
       expect(body.response_format.json_schema.schema).toEqual(request.responseSchema);
     }
   });
-  it("rejects four images, unsupported MIME and malformed base64 without network",async()=>{
+  it("rejects three images, unsupported MIME and malformed base64 without network",async()=>{
     const adapter=createGroqProvider("fake",true);
-    await expect(adapter.generate({...request,input:[...request.input,pic,pic,pic,pic]})).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
+    await expect(adapter.generate({...request,input:[...request.input,pic,pic,pic]})).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
     await expect(adapter.generate({...request,input:[...request.input,{...pic,mimeType:"image/gif" as "image/png"}]})).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
     await expect(adapter.generate({...request,input:[...request.input,{...pic,data:"bad!"}]})).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
     expect(transport).not.toHaveBeenCalled();

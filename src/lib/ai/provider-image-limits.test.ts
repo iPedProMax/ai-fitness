@@ -8,7 +8,7 @@ describe("provider-dependent photo limits", () => {
   it("allows just one with the current Cloudflare adapter", () => {
     expect(getProviderMaxImages("cloudflare")).toBe(1);
   });
-  it("allows three Groq vision photos", () => {
-    expect(getProviderMaxImages("groq")).toBe(3);
+  it("allows two Groq vision photos", () => {
+    expect(getProviderMaxImages("groq")).toBe(2);
   });
 });

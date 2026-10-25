@@ -14,6 +14,7 @@ import {
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
+import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
 import {
   enforceVarietyClarifications,
 } from "../../../../lib/variety-clarification";
@@ -608,8 +609,11 @@ Associate it with other images only when the connection is reasonably supported.
         parsed
       );
 
+    const providerNormalized = (provider.id === "groq" || provider.id === "cloudflare")
+      ? normalizeSingleFoodProvider(parsedResult)
+      : parsedResult;
     const withScaleClarifications =
-      normalizeScaleClarifications(parsedResult);
+      normalizeScaleClarifications(providerNormalized);
 
     const withDrinkClarifications =
       enforcePreparedDrinkClarifications(
