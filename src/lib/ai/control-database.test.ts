@@ -35,6 +35,7 @@ beforeAll(async () => {
   await db.exec(readFileSync("supabase/migrations/20261011_create_ai_daily_usage.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261015_ai_request_control.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261023_distinct_free_gemini_models.sql", "utf8"));
+  await db.exec(readFileSync("supabase/migrations/20261025_multiai_provider_foundation.sql", "utf8"));
   await db.query("insert into auth.users values ($1),($2)", [user, otherUser]);
 }, 30_000);
 beforeEach(async () => {
@@ -258,5 +259,32 @@ describe("distinct Gemini model quotas (staging migration)", () => {
     )).rows;
     expect(rows).toHaveLength(3);
     expect(new Set(rows.map(row=>row.bucket)).size).toBe(1);
+  });
+});
+
+
+describe("Multi-AI provider database admission", () => {
+  it("registers Cloudflare without granting browser access to provider policy", async () => {
+    const result=await db.query<{provider:string}>("select provider from public.ai_provider_policy where provider='cloudflare'");
+    expect(result.rows).toEqual([{ provider: "cloudflare" }]);
+    await db.exec("set role authenticated");
+    await expect(db.query("select * from public.ai_provider_policy")).rejects.toThrow(/permission denied/);
+    await db.exec("reset role");
+  });
+  it("admits Groq when Gemini is disabled, but does not allow a paid attempt", async () => {
+    await db.exec("update public.ai_provider_policy set enabled=false where provider like 'gemini%'");
+    const key=randomUUID(), token=await claim(key);
+    expect(await attempt(key,token,"groq")).toEqual({ok:true});
+    await db.exec("update public.ai_provider_policy set cost_per_attempt_micros=1 where provider='cloudflare'");
+    const key2=randomUUID(),token2=await claim(key2);
+    expect(await attempt(key2,token2,"cloudflare")).toMatchObject({code:"AI_PROVIDER_DISABLED"});
+  });
+  it("enforces Cloudflare's separate local quota and shares user analysis credits", async () => {
+    await db.exec("update public.ai_provider_policy set requests_per_day=1 where provider='cloudflare'");
+    const key=randomUUID(),token=await claim(key);
+    expect(await attempt(key,token,"cloudflare")).toEqual({ok:true});
+    const next=randomUUID(),claim2=await claim(next);
+    expect(await attempt(next,claim2,"cloudflare")).toMatchObject({code:"AI_GLOBAL_LIMIT"});
+    expect(await count()).toBe(2);
   });
 });

@@ -8,6 +8,8 @@ import {
 
 import { AddMealButton } from "@/components/add-meal-button";
 import { LogFoodPanel } from "@/components/log-food-panel";
+import { AiProviderPicker } from "@/components/ai-provider-picker";
+import type { AiProviderChoice } from "@/components/ai-provider-picker";
 import { MAX_MEAL_IMAGES, selectMealImages } from "@/lib/meal-image-selection";
 
 import { AiHttpError } from "@/lib/ai-submission";
@@ -85,6 +87,7 @@ function ImageThumbnail({
 
 export default function Home() {
   const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
+  const [providerId, setProviderId] = useState<AiProviderChoice>("gemini");
   const [
     images,
     setImages,
@@ -248,7 +251,7 @@ export default function Home() {
       const result =
         await analyzeFood({
           images,
-        });
+        }, { modelId: providerId });
 
       setAnalysis(result);
     } catch (error) {
@@ -344,7 +347,7 @@ export default function Home() {
           analysis,
           clarificationId,
           answer,
-
+          { modelId: providerId },
         );
 
       setAnalysis(refined);
@@ -455,6 +458,11 @@ export default function Home() {
           <button type="button" aria-pressed={entryMode === "photo"} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📷 Photo Scanner</button>
           <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
         </div>
+
+        <AiProviderPicker value={providerId} onChange={next => {
+          setProviderId(next);
+          resetAnalysis();
+        }} photoCount={entryMode === "photo" ? images.length : 0} />
 
         <div
           ref={uploaderRef}
@@ -639,7 +647,9 @@ export default function Home() {
               }
               disabled={
                 !hasImages ||
-                isAnalyzing
+                isAnalyzing ||
+                providerId === "groq" ||
+                (providerId === "cloudflare" && images.length > 1)
               }
               className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
@@ -651,6 +661,7 @@ export default function Home() {
 
           ) : (
             <LogFoodPanel
+              providerId={providerId}
               onReset={resetAnalysis} onResult={(result) => {
               setAnalysis(result);
               setAnalysisStarted(true);

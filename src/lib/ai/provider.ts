@@ -1,14 +1,25 @@
 import "server-only";
 
 import { createGeminiProvider } from "./providers/gemini";
-import { isGeminiModelId } from "./model-catalog";
+import { createGroqProvider } from "./providers/groq";
+import { createCloudflareProvider } from "./providers/cloudflare";
 import type { AiProvider } from "./types";
 import { generateWithFallback } from "./router";
 import { guardProvider } from "./request-control";
 
-/** Strict model selection: never silently reroute a user to another provider. */
+/** One explicitly selected provider per request. Never silently switch provider. */
 export function getAiProvider(model: string = "gemini"): AiProvider | null {
-  if (!isGeminiModelId(model) || !process.env.GEMINI_API_KEY) return null;
-  const gemini = guardProvider(createGeminiProvider(process.env.GEMINI_API_KEY, model));
-  return { ...gemini, generate: request => generateWithFallback([gemini], request) };
+  let candidate: AiProvider | null = null;
+  if (model === "gemini" && process.env.GEMINI_API_KEY) {
+    candidate = createGeminiProvider(process.env.GEMINI_API_KEY, "gemini");
+  } else if (model === "cloudflare" && process.env.AI_ENABLE_CLOUDFLARE_FREE === "true") {
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
+    const apiToken = process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN ?? "";
+    candidate = createCloudflareProvider({ accountId, apiToken }, true);
+  } else if (model === "groq" && process.env.AI_ENABLE_GROQ_FREE === "true" && process.env.GROQ_API_KEY) {
+    candidate = createGroqProvider(process.env.GROQ_API_KEY, true);
+  }
+  if (!candidate?.enabled || !candidate.available) return null;
+  const provider = guardProvider(candidate);
+  return { ...provider, generate: request => generateWithFallback([provider], request) };
 }

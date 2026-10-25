@@ -69,11 +69,11 @@ describe("single Gemini model admission", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it.each(["gemini-3.8-flash", "gemini-3.6-flash", "groq", "cloudflare", "openrouter"])(
-    "blocks previously selectable %s before using provider or credits", async model => {
+  it.each(["gemini-3.8-flash", "gemini-3.6-flash", "openrouter"])(
+    "blocks unsupported %s before using provider or credits", async model => {
       const response = await analyze(imageRequest(model));
-      expect(response.status).toBe(503);
-      expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNAVAILABLE" });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "AI_INVALID_MODEL" });
       expect(provider).not.toHaveBeenCalled();
       expect(reserve).not.toHaveBeenCalled();
     },
@@ -81,20 +81,32 @@ describe("single Gemini model admission", () => {
 
   it("blocks multi-photo requests for an old non-default model", async () => {
     const response = await analyze(imageRequest("cloudflare", 2));
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(422);
     expect(reserve).not.toHaveBeenCalled();
   });
 
   it("rejects attempts to choose another model in text analyses", async () => {
     const response = await text(textRequest("gemini-3.8-flash"));
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(400);
     expect(reserve).not.toHaveBeenCalled();
   });
 
   it("rejects attempts to choose another model in refinements", async () => {
     const response = await refine(refineRequest("mistral"));
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(400);
     expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it("accepts Cloudflare for one photo when available", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "cloudflare", capabilities: { ...defaultProvider.capabilities, maxImages: 1 } });
+    expect(await selectRequestedAiModel("cloudflare", 1)).toMatchObject({ provider: { id: "cloudflare" } });
+    expect(provider).toHaveBeenCalledExactlyOnceWith("cloudflare");
+  });
+
+  it("accepts Groq only for text", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "groq", capabilities: { ...defaultProvider.capabilities, vision: false, maxImages: 0 } });
+    expect(await selectRequestedAiModel("groq", 0)).toMatchObject({ provider: { id: "groq" } });
+    expect((await selectRequestedAiModel("groq", 1)).error?.status).toBe(422);
   });
 
   it("rejects excessive image counts with the normal compatibility error", async () => {

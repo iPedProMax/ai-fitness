@@ -159,7 +159,7 @@ describe("HTTP → durable admission → guarded provider → final response rep
     await expect(guardProvider(provider).generate({input:[],responseSchema:{}})).rejects.toMatchObject({code:"ACCOUNTING_UNAVAILABLE"});
     expect(generate).not.toHaveBeenCalled();
   });
-  it("fails closed for Cloudflare until distributed quota accounting is implemented",async()=>{
+  it("denies Cloudflare safely when the provider policy is missing",async()=>{
     const transport=vi.fn();vi.stubGlobal("fetch",transport);
     const provider=guardProvider(createCloudflareProvider({accountId:"a".repeat(32),apiToken:"synthetic-token"},true));
     const response=await withAiRequest(request(),async()=>{
@@ -168,9 +168,14 @@ describe("HTTP → durable admission → guarded provider → final response rep
       catch(error) { return aiRoutingErrorResponse(error)!; }
       return NextResponse.json({error:"Unexpected execution"},{status:500});
     });
-    expect(response.status).toBe(503);expect(transport).not.toHaveBeenCalled();
-    expect(control.mock.calls.some(([args])=>args.p_operation==="attempt")).toBe(false);
-    expect(await count()).toBe(0); // Denied before any approved provider attempt.
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({code:"AI_ACCOUNTING_UNAVAILABLE"});
+    expect(transport).not.toHaveBeenCalled();
+    const attempts = control.mock.calls.map(([args]) => args as ControlArguments)
+      .filter(args => args.p_operation === "attempt");
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].p_provider).toBe("cloudflare");
+    expect(await count()).toBe(0); // Database denied dispatch; credit refunded.
   });
   it("a transient primary outage reserves two provider attempts and one user credit",async()=>{
     const primary:AiProvider={id:"gemini",enabled:true,available:true,capabilities:{text:true,vision:true,maxImages:10,structuredJson:true},generate:vi.fn().mockRejectedValue({status:429})};

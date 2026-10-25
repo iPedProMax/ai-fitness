@@ -19,7 +19,7 @@ describe("disabled Groq adapter (mock transport only)",()=>{
     expect(await createGroqProvider("fake",true).generate(request)).toEqual({outputText:'{"notes":"rice"}'});
     const [url,init]=transport.mock.calls[0];
     expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
-    expect(JSON.parse(init!.body as string)).toEqual({model:GROQ_MODEL,messages:[{role:"user",content:request.input[0].text}],response_format:{type:"json_schema",json_schema:{name:"nutrition",strict:false,schema:request.responseSchema}},max_completion_tokens:65536});
+    expect(JSON.parse(init!.body as string)).toEqual({model:GROQ_MODEL,messages:[{role:"user",content:request.input[0].text}],response_format:{type:"json_schema",json_schema:{name:"nutrition",strict:false,schema:request.responseSchema}},max_completion_tokens:2048});
     expect(init?.redirect).toBe("error"); expect(transport).toHaveBeenCalledOnce();
   });
   it("rejects images before the transport even if called directly",async()=>{

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AiProviderChoice } from "@/components/ai-provider-picker";
 import type { FormEvent } from "react";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { analyzeFoodText } from "@/lib/analyze-food-text";
@@ -51,9 +52,10 @@ export function fillMissingFromAi(
 type Props = {
   onResult: (result: FoodAnalysis) => void;
   onReset: () => void;
+  providerId?: AiProviderChoice;
 };
 
-export function LogFoodPanel({ onResult, onReset }: Props) {
+export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props) {
   const [items, setItems] = useState<ManualFoodInput[]>([emptyItem()]);
   const [description, setDescription] = useState("");
   const [aiAssisted, setAiAssisted] = useState(false);
@@ -88,7 +90,7 @@ export function LogFoodPanel({ onResult, onReset }: Props) {
     setWorking(true);
     setError(null);
     try {
-      const estimate = await analyzeFoodText(prompt);
+      const estimate = await analyzeFoodText(prompt, { modelId: providerId });
       if (estimate.foods.length === 0) {
         throw new Error("AI did not return a food estimate.");
       }

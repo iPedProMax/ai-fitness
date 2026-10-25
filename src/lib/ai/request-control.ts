@@ -1,6 +1,7 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { controlRequest, type ControlResult } from "./control-store";
@@ -101,9 +102,21 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
   });
 }
 
-// Groq remains disabled/unregistered and retains its original full-model bound.
-// Every reservation remains consumed on errors/timeouts; no optimistic refunds.
-const tokenCeilings: Record<string, number> = { groq: 131_072 + 65_536 };
+// Fail closed on request accounting. Groq's local bound is deliberately below
+// its published free-tier TPM; Cloudflare's local token cap is NOT Neurons.
+// No refund for ambiguous upstream failures.
+function extraProviderReservation(id: string, request: AiGenerationRequest): number | null {
+  if (id !== "groq" && id !== "cloudflare") return null;
+  const imageCount = request.input.filter(part => part.type === "image").length;
+  if (id === "groq" && imageCount > 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
+    part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
+    responseSchema: request.responseSchema }), "utf8");
+  const tokens = Math.ceil(bytes * 1.25) + 1024 + (id === "groq" ? 2048 : 4096) + imageCount * 2048;
+  if (tokens > (id === "groq" ? 7800 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
+  return tokens;
+}
 
 async function observeCancellation(provider: AiProvider, request: AiGenerationRequest) {
   let cancel = () => {};
@@ -125,7 +138,7 @@ export function guardProvider(provider: AiProvider): AiProvider {
       throw new AiRoutingError("ACCOUNTING_UNAVAILABLE");
     }
     try {
-      const tokens = isGeminiModelId(provider.id) ? geminiTokenReservation(request) : tokenCeilings[provider.id];
+      const tokens = isGeminiModelId(provider.id) ? geminiTokenReservation(request) : extraProviderReservation(provider.id, request);
       if (!tokens) throw new Error("Unaccounted model");
       const result = await controlRequest({ p_operation: "attempt", p_user_id: context.userId,
         p_key: context.key, p_claim: context.claim, p_provider: provider.id, p_tokens: tokens });

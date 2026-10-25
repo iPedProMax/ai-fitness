@@ -33,7 +33,7 @@ export function createGroqProvider(apiKey: string, enabled = false): AiProvider 
             response_format: { type: "json_schema", json_schema: {
               name: "nutrition", strict: false, schema: request.responseSchema,
             } },
-            max_completion_tokens: 65_536,
+            max_completion_tokens: 2_048,
           }),
         });
       } catch (error) {

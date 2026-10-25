@@ -44,8 +44,8 @@ describe("separate Gemini model choices", () => {
   });
 
   it("accepts only allowlisted Gemini model names and uses distinct accounting identities", () => {
-    expect(getAiProvider("gemini-3.8-flash")?.id).toBe("gemini-3.8-flash");
-    expect(getAiProvider("gemini-3.6-flash")?.id).toBe("gemini-3.6-flash");
+    expect(getAiProvider("gemini-3.8-flash")).toBeNull();
+    expect(getAiProvider("gemini-3.6-flash")).toBeNull();
     expect(getAiProvider("gemini")?.id).toBe("gemini");
     expect(getAiProvider("gemini-3.8-flash-debug")).toBe(null);
   });
