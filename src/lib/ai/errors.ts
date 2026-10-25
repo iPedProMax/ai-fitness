@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 type RoutingErrorCode = "NO_COMPATIBLE_PROVIDER" | "UNAVAILABLE" | "TIMEOUT" | "CANCELLED" | "ACCOUNTING_UNAVAILABLE" | "PROVIDER_LIMITED" | "INPUT_TOO_LARGE";
 
 const messages: Record<RoutingErrorCode, string> = {
-  INPUT_TOO_LARGE: "This analysis contains too much text. Please shorten it and try again.",
+  INPUT_TOO_LARGE: "This request exceeds the selected AI provider's safe size or token limit. Try fewer photos or switch to Gemini.",
   PROVIDER_LIMITED: "AI provider capacity is temporarily unavailable. Please try again later.",
   ACCOUNTING_UNAVAILABLE: "AI usage accounting cannot safely authorize this request.",
   NO_COMPATIBLE_PROVIDER: "No compatible AI provider is available for this request.",

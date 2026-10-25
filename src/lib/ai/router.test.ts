@@ -155,6 +155,40 @@ describe("bounded fallback", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("allows Cloudflare 60 seconds by default while Gemini remains capped at 50", async () => {
+    vi.useFakeTimers();
+    const cloudflare = mockProvider("cloudflare");
+    cloudflare.generate.mockImplementation(() => new Promise(resolve => {
+      setTimeout(() => resolve(result), 55_000);
+    }));
+    const pendingCloudflare = generateWithFallback([cloudflare], request);
+    const accepted = expect(pendingCloudflare).resolves.toEqual(result);
+    await vi.advanceTimersByTimeAsync(55_000);
+    await accepted;
+    expect(vi.getTimerCount()).toBe(0);
+
+    const gemini = mockProvider("gemini");
+    gemini.generate.mockImplementation(() => new Promise(() => {}));
+    const pendingGemini = generateWithFallback([gemini], request);
+    const timedOut = expect(pendingGemini).rejects.toMatchObject({ code: "TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(50_000);
+    await timedOut;
+    expect(gemini.generate.mock.calls[0][0].signal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("preserves an explicitly shorter Cloudflare timeout", async () => {
+    vi.useFakeTimers();
+    const cloudflare = mockProvider("cloudflare");
+    cloudflare.generate.mockImplementation(() => new Promise(() => {}));
+    const pending = generateWithFallback([cloudflare], request, { attemptTimeoutMs: 25 });
+    const timedOut = expect(pending).rejects.toMatchObject({ code: "TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(25);
+    await timedOut;
+    expect(cloudflare.generate.mock.calls[0][0].signal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("enforces the overall deadline and ignores late provider completion", async () => {
     vi.useFakeTimers();
     const primary = mockProvider();

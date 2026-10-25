@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGroqProvider, GROQ_MODEL, groqCompletionTokens } from "./groq";
+import { createGroqProvider, GROQ_MODEL, groqCompletionTokens, GROQ_THREE_PHOTO_SCHEMA } from "./groq";
 import { isTransientProviderFailure } from "../errors";
 import type { AiGenerationRequest } from "../types";
 
@@ -34,6 +34,17 @@ describe("Groq Qwen vision adapter (mock transport only)",()=>{
     expect(body.messages[0].content).toHaveLength(4);
     expect(body.messages[0].content[1]).toEqual({type:"image_url",image_url:{url:"data:image/png;base64,iVBORw0KGgo="}});
     expect(body.max_completion_tokens).toBe(groqCompletionTokens(3));
+    expect(body.response_format.json_schema.schema).toEqual(GROQ_THREE_PHOTO_SCHEMA);
+    expect(groqCompletionTokens(3)).toBe(768);
+  });
+  it("uses the full schema for one and two images, compact schema for three", async () => {
+    // Return a fresh Response for each fetch; response bodies are single-use streams.
+    transport.mockImplementation(async () => ok());
+    for (const count of [1, 2]) {
+      await createGroqProvider("fake", true).generate({...request, input: [...request.input, ...Array(count).fill(pic)]});
+      const body = JSON.parse(transport.mock.calls.at(-1)![1]!.body as string);
+      expect(body.response_format.json_schema.schema).toEqual(request.responseSchema);
+    }
   });
   it("rejects four images, unsupported MIME and malformed base64 without network",async()=>{
     const adapter=createGroqProvider("fake",true);

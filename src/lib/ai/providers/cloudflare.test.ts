@@ -10,7 +10,8 @@ const transport = vi.fn<typeof fetch>();
 const credentials = { accountId: "a".repeat(32), apiToken: "synthetic-cloudflare-token" };
 const food = { foods: [{ name: "Rice", estimatedGrams: 100, calories: 130, protein: 3, carbs: 28, fat: 0, confidence: 0.8 }], totalCalories: 130, notes: "", clarifications: [] };
 const request: AiGenerationRequest = { input: [{ type: "text", text: "Exact food prompt\n" }, { type: "image", data: "AA==", mimeType: "image/jpeg" }], responseSchema: foodAnalysisJsonSchema };
-const reply = (response: unknown = food) => Response.json({ success: true, result: { response } });
+const reply = (response: unknown = food) => Response.json({ success: true, result: { result: { answer: typeof response === "string" ? response : JSON.stringify(response), finish_reason: "stop" } } });
+const textReply = (response: unknown = food) => Response.json({ success: true, result: { response } });
 beforeEach(() => { transport.mockReset(); vi.stubGlobal("fetch", transport); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 
@@ -51,16 +52,29 @@ describe("disabled Cloudflare Workers AI adapter (mock HTTPS only)", () => {
     const [url, init] = transport.mock.calls[0];
     expect(url).toBe(`https://api.cloudflare.com/client/v4/accounts/${credentials.accountId}/ai/run/${CLOUDFLARE_MODEL}`);
     expect(init).toMatchObject({ method: "POST", redirect: "error", signal: expect.any(AbortSignal) });
-    expect(JSON.parse(init!.body as string)).toEqual({
-      messages: [{ role: "user", content: [{ type: "text", text: request.input[0].type === "text" ? request.input[0].text : "" }, { type: "image_url", image_url: { url: "data:image/jpeg;base64,AA==" } }] }],
-      response_format: { type: "json_schema", json_schema: foodAnalysisJsonSchema }, max_tokens: 8192, stream: false,
+    expect(JSON.parse(init!.body as string)).toMatchObject({
+      task: "query", image: "data:image/jpeg;base64,AA==", stream: false,
+      reasoning: false, max_tokens: 900,
     });
     expect(transport).toHaveBeenCalledOnce();
   });
   it("accepts text tasks without injecting or rewriting prompts", async () => {
-    transport.mockResolvedValue(reply());
+    transport.mockResolvedValue(textReply());
     await createCloudflareProvider(credentials, true).generate({ ...request, input: [{ type: "text", text: "Refine this exact answer\n" }] });
     expect(JSON.parse(transport.mock.calls[0][1]!.body as string).messages[0].content).toEqual([{ type: "text", text: "Refine this exact answer\n" }]);
+    expect(transport.mock.calls[0][0]).toContain("llama-4-scout");
+  });
+  it("normalizes concise Moondream nutrition and caps unreliable confidence", async () => {
+    transport.mockResolvedValue(reply({food_name:"Pasta",estimated_grams:200,calories_kcal:400,
+      protein_g:20,carbs_g:40,fat_g:10,confidence:95,assumptions:"Portion is estimated."}));
+    const result = await createCloudflareProvider(credentials, true).generate(request);
+    const parsed = foodAnalysisSchema.parse(JSON.parse(result.outputText!));
+    expect(parsed.foods).toHaveLength(1);
+    expect(parsed.foods[0]).toMatchObject({name:"Pasta",estimatedGrams:200,calories:400,confidence:0.8,weightSource:"AI_ESTIMATE"});
+  });
+  it("rejects incomplete Moondream estimates instead of inventing missing macros", async () => {
+    transport.mockResolvedValue(reply({food_name:"Unclear food",calories_kcal:400}));
+    await expect(createCloudflareProvider(credentials,true).generate(request)).rejects.toThrow("Incomplete Moondream nutrition");
   });
   it("rejects multiple images without dropping evidence", async () => {
     const provider = createCloudflareProvider(credentials, true);
@@ -120,11 +134,15 @@ describe("disabled Cloudflare Workers AI adapter (mock HTTPS only)", () => {
     await expect(createCloudflareProvider(credentials, true).generate(request)).rejects.toThrow();
     expect(transport).toHaveBeenCalledOnce();
   });
-  it("bounds a hanging transport at 20 seconds and cleans up timers", async () => {
+  it("rejects a truncated Moondream response", async () => {
+    transport.mockResolvedValue(Response.json({success:true,result:{result:{answer:"{}",finish_reason:"length"}}}));
+    await expect(createCloudflareProvider(credentials,true).generate(request)).rejects.toThrow("truncated");
+  });
+  it("bounds a hanging transport at 60 seconds and cleans up timers", async () => {
     vi.useFakeTimers(); transport.mockImplementation(() => new Promise(() => {}));
     const pending = createCloudflareProvider(credentials, true).generate(request);
     const assertion = expect(pending).rejects.toMatchObject({ code: "TIMEOUT" });
-    await vi.advanceTimersByTimeAsync(20_000); await assertion;
+    await vi.advanceTimersByTimeAsync(60_000); await assertion;
     expect(transport.mock.calls[0][1]?.signal?.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
   });

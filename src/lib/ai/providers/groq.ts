@@ -8,7 +8,27 @@ import type { AiGenerationRequest, AiProvider } from "../types";
 export const GROQ_MODEL = "qwen/qwen3.8-27b";
 export const GROQ_MAX_IMAGES = 3;
 export const GROQ_MAX_BODY_BYTES = 19 * 1024 * 1024;
-export function groqCompletionTokens(imageCount: number): number { return imageCount === 3 ? 512 : 1024; }
+export function groqCompletionTokens(imageCount: number): number { return imageCount === 3 ? 768 : 1024; }
+// A compact JSON contract leaves room for three photos under Groq Free's 8K TPM.
+// Optional brand/scale/clarification signals can be absent; the canonical route
+// still validates all required nutrition numbers before a result is displayed.
+const shortFoodProperties = Object.fromEntries(["name", "estimatedGrams", "calories", "protein", "carbs", "fat", "confidence"].map(name =>
+  [name, { type: name === "name" ? "string" : "number" }]));
+export const GROQ_THREE_PHOTO_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    foods: { type: "array", items: { type: "object", properties: shortFoodProperties,
+      required: ["name", "estimatedGrams", "calories", "protein", "carbs", "fat", "confidence"] } },
+    totalCalories: { type: "number" }, notes: { type: "string" },
+    clarifications: { type: "array", items: { type: "object", properties: {
+      id: { type: "string" }, foodIndex: { type: "number" },
+      question: { type: "string" }, options: { type: "array", items: { type: "string" } },
+    }, required: ["id", "foodIndex", "question", "options"] } },
+  }, required: ["foods", "totalCalories", "notes", "clarifications"],
+};
+export function groqResponseSchema(schema: Record<string, unknown>, images: number): Record<string, unknown> {
+  return images === 3 ? GROQ_THREE_PHOTO_SCHEMA : schema;
+}
 const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const responseSchema = z.object({ choices: z.array(z.object({
   message: z.object({ content: z.string().nullable() }),
@@ -29,7 +49,7 @@ function toBody(request: AiGenerationRequest): string {
     model: GROQ_MODEL,
     messages: [{ role: "user", content }],
     response_format: { type: "json_schema", json_schema: {
-      name: "nutrition", strict: false, schema: request.responseSchema,
+      name: "nutrition", strict: false, schema: groqResponseSchema(request.responseSchema, images.length),
     } },
     reasoning_effort: "none",
     max_completion_tokens: groqCompletionTokens(images.length),
@@ -46,7 +66,7 @@ export function createGroqProvider(apiKey: string, enabled = false): AiProvider 
     async generate(request) {
       if (!enabled || !apiKey) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
       const body = toBody(request); // Reject bad inputs before network requests.
-      const signal = AbortSignal.any([AbortSignal.timeout(20_000), ...(request.signal ? [request.signal] : [])]);
+      const signal = AbortSignal.any([AbortSignal.timeout(40_000), ...(request.signal ? [request.signal] : [])]);
       let response: Response;
       try {
         response = await fetch("https://api.groq.com/openai/v1/chat/completions", {

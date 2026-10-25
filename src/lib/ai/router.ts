@@ -84,7 +84,12 @@ export async function generateWithFallback(
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new AiRoutingError("TIMEOUT");
     try {
-      return await callWithDeadline(provider, request, Math.min(policy.attemptTimeoutMs, remaining));
+      // Cloudflare vision may need longer than the shared 50-second default.
+      // Preserve explicit, shorter caller deadlines and the 60-second total cap.
+      const attemptTimeoutMs = provider.id === "cloudflare" && options.attemptTimeoutMs === undefined
+        ? 60_000
+        : policy.attemptTimeoutMs;
+      return await callWithDeadline(provider, request, Math.min(attemptTimeoutMs, remaining));
     } catch (error) {
       if (!isTransientProviderFailure(error)) throw error;
       if (provider === candidates[candidates.length - 1]) {

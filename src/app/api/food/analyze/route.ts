@@ -13,7 +13,7 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
-import { groqPhotoPrompt } from "@/lib/ai/groq-photo-prompt";
+import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import {
   enforceVarietyClarifications,
 } from "../../../../lib/variety-clarification";
@@ -309,6 +309,7 @@ async function handlePost(
   const authError = await requireFoodApiAuth();
   if (authError) return authError;
 
+  let selectedProviderId = "gemini";
   try {
     const formData =
       await request.formData();
@@ -398,6 +399,7 @@ async function handlePost(
     const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
+    selectedProviderId = provider.id;
 
     const quotaError = await reserveAiUsage("analysis");
     if (quotaError) return quotaError;
@@ -406,12 +408,12 @@ async function handlePost(
       [
         {
           type: "text",
-          text: provider.id === "groq" ? groqPhotoPrompt : foodAnalysisPrompt,
+          text: provider.id === "groq" ? groqPhotoPrompt : provider.id === "cloudflare" ? cloudflarePhotoPrompt : foodAnalysisPrompt,
         },
 
         {
           type: "text",
-          text: provider.id === "groq" ? `The user supplied ${images.length} images. Use all evidence.` : `
+          text: provider.id === "groq" ? `Photos: ${images.length}.` : provider.id === "cloudflare" ? `One image. Use its visible evidence.` : `
 The user supplied ${images.length} image${images.length === 1 ? "" : "s"}.
 
 The images are NOT manually classified.
@@ -563,7 +565,7 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
       input.push({
         type: "text",
 
-        text: `IMAGE ${index + 1} OF ${images.length}
+        text: provider.id === "groq" ? `Image ${index + 1}/${images.length}.` : provider.id === "cloudflare" ? "Inspect this photo as evidence; identify its role." : `IMAGE ${index + 1} OF ${images.length}
 
 Inspect this image and determine its role from the visual evidence.
 
@@ -635,6 +637,14 @@ Associate it with other images only when the connection is reasonably supported.
   } catch (error) {
     const routingError = aiRoutingErrorResponse(error);
     if (routingError) return routingError;
+    if (selectedProviderId !== "gemini") {
+      // Never expose upstream bodies, prompts, image content, or tokens.
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({ provider: selectedProviderId,
+        category: error instanceof SyntaxError ? "JSON_PARSE" :
+          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER" }));
+      return NextResponse.json({ error: "This provider could not complete a valid nutrition estimate. Try fewer photos or select Gemini.",
+        code: "AI_INVALID_NUTRITION" }, { status: 502 });
+    }
     console.error(
       "Gemini food analysis failed."
     );

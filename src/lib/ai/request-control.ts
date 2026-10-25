@@ -8,7 +8,7 @@ import { controlRequest, type ControlResult } from "./control-store";
 import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
 import { isGeminiModelId } from "./model-catalog";
-import { groqCompletionTokens } from "./providers/groq";
+import { groqCompletionTokens, groqResponseSchema } from "./providers/groq";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -113,7 +113,7 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
-    responseSchema: request.responseSchema }), "utf8");
+    responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");
   // Conservative approximation, NOT exact model tokenization or Groq billing.
   // Three 2048-token images nearly exhaust Free-tier 8K TPM; reject before dispatch
   // if prompt/schema + output headroom cannot fit. Never truncate selected photos.

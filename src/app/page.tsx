@@ -395,7 +395,9 @@ export default function Home() {
       );
 
       setRefineError(
-        "We couldn't update the estimate. Please try again."
+        error instanceof AiHttpError
+          ? error.message
+          : "We couldn't update the estimate. Please try again."
       );
     } finally {
       setRefiningClarificationId(
