@@ -10,7 +10,8 @@ import { AddMealButton } from "@/components/add-meal-button";
 import { LogFoodPanel } from "@/components/log-food-panel";
 import { AiProviderPicker } from "@/components/ai-provider-picker";
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
-import { MAX_MEAL_IMAGES, selectMealImages } from "@/lib/meal-image-selection";
+import { selectMealImages } from "@/lib/meal-image-selection";
+import { getProviderMaxImages } from "@/lib/ai/provider-image-limits";
 
 import { AiHttpError } from "@/lib/ai-submission";
 
@@ -28,7 +29,6 @@ import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
 
-const MAX_IMAGES = MAX_MEAL_IMAGES;
 
 type ImageThumbnailProps = {
   file: File;
@@ -157,6 +157,8 @@ export default function Home() {
 
   const hasImages =
     images.length > 0;
+  const MAX_IMAGES = getProviderMaxImages(providerId);
+  const overProviderLimit = images.length > MAX_IMAGES;
 
   useEffect(() => {
     if (
@@ -205,7 +207,7 @@ export default function Home() {
   }
 
   function addImages(incoming: File[]) {
-    const selection = selectMealImages(images, incoming);
+    const selection = selectMealImages(images, incoming, MAX_IMAGES);
     setImageNotice(selection.notice);
 
     if (selection.added === 0) return;
@@ -233,7 +235,9 @@ export default function Home() {
   async function handleAnalyze() {
     if (
       !hasImages ||
-      isAnalyzing
+      isAnalyzing ||
+      MAX_IMAGES === 0 ||
+      overProviderLimit
     ) {
       return;
     }
@@ -450,17 +454,21 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            For best results, scan 1-3 foods or drinks at a time. Add up to 10 photos, including labels, packaging, and scale photos.
+            For best results, scan 1-3 foods or drinks at a time. {MAX_IMAGES === 0
+              ? "This AI currently accepts text entries only."
+              : `Add up to ${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}, including labels, packaging, and scale photos.`}
           </p>
         </section>
 
         <div className="mb-6 flex max-w-xl gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
-          <button type="button" aria-pressed={entryMode === "photo"} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📷 Photo Scanner</button>
+          <button type="button" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
           <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
         </div>
 
         <AiProviderPicker value={providerId} onChange={next => {
           setProviderId(next);
+          if (getProviderMaxImages(next) === 0) setEntryMode("manual");
+          setImageNotice(null);
           resetAnalysis();
         }} photoCount={entryMode === "photo" ? images.length : 0} />
 
@@ -526,7 +534,7 @@ export default function Home() {
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      multiple
+                      multiple={MAX_IMAGES > 1}
                       className="hidden"
                       onChange={(
                         event
@@ -564,18 +572,18 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    Up to ten images.
+                    Up to {MAX_IMAGES} photo{MAX_IMAGES === 1 ? "" : "s"}.
                   </p>
                 </div>
               </div>
             )}
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
+              <label aria-disabled={images.length >= MAX_IMAGES} className={`inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition ${images.length >= MAX_IMAGES ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-slate-800"}`} >
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  multiple
+                  multiple={MAX_IMAGES > 1}
                   className="hidden"
                   disabled={
                     images.length >=
@@ -601,7 +609,7 @@ export default function Home() {
                 ＋ Upload
               </label>
 
-              <label className="inline-flex cursor-pointer items-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100">
+              <label aria-disabled={images.length >= MAX_IMAGES} className={`inline-flex items-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 transition ${images.length >= MAX_IMAGES ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-emerald-100"}`} >
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -634,6 +642,12 @@ export default function Home() {
               </label>
             </div>
 
+            {overProviderLimit && (
+              <p role="alert" className="mt-3 text-xs font-medium text-amber-700">
+                {`This AI supports ${MAX_IMAGES === 0 ? "text only" : `${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}`} per request. You have ${images.length} saved. Remove extras or switch providers; your photos have not been deleted.`}
+              </p>
+            )}
+
             {imageNotice && (
               <p className="mt-3 text-xs font-medium text-amber-600">
                 {imageNotice}
@@ -648,8 +662,8 @@ export default function Home() {
               disabled={
                 !hasImages ||
                 isAnalyzing ||
-                providerId === "groq" ||
-                (providerId === "cloudflare" && images.length > 1)
+                MAX_IMAGES === 0 ||
+                overProviderLimit
               }
               className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >

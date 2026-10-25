@@ -98,4 +98,30 @@ describe("meal photo selection", () => {
     expect(result.notice).toContain("10 MB");
     expect(result.notice).toContain("Duplicate photos");
   });
+  it("respects a one-photo provider limit even when multiple files are selected", () => {
+    const result = selectMealImages([], [photo("plate.jpg"), photo("label.png", "image/png")], 1);
+    expect(result.images.map(file => file.name)).toEqual(["plate.jpg"]);
+    expect(result.added).toBe(1);
+    expect(result.notice).toContain("up to 1 photo");
+  });
+
+  it("keeps existing photos when switching to a provider with a lower limit", () => {
+    const original = [photo("plate.jpg"), photo("label.png", "image/png")];
+    const result = selectMealImages(original, [photo("another.jpg")], 1);
+    expect(result.images).toEqual(original);
+    expect(result.added).toBe(0);
+    expect(result.notice).toContain("up to 1 photo");
+  });
+
+  it("rejects photo additions for a text-only provider", () => {
+    const result = selectMealImages([], [photo("plate.jpg")], 0);
+    expect(result.added).toBe(0);
+    expect(result.notice).toContain("text only");
+  });
+
+  it("fails closed when handed an invalid provider photo limit", () => {
+    expect(() => selectMealImages([], [photo("plate.jpg")], 11)).toThrow(RangeError);
+    expect(() => selectMealImages([], [photo("plate.jpg")], -1)).toThrow(RangeError);
+  });
+
 });

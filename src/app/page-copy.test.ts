@@ -15,7 +15,7 @@ import {
 describe(
   "food scanner guidance",
   () => {
-    it("recommends scanning 1-3 foods while keeping the 6 photo limit", () => {
+    it("recommends scanning 1-3 foods while adapting to the selected AI provider", () => {
       const source =
         readFileSync(
           join(
@@ -34,8 +34,11 @@ describe(
       expect(
         source
       ).toContain(
-        "Add up to 10 photos, including labels, packaging, and scale photos."
+        "Add up to ${MAX_IMAGES} photo"
       );
+      expect(source).toContain("selectMealImages(images, incoming, MAX_IMAGES)");
+      expect(source).toContain("disabled={MAX_IMAGES === 0}");
+      expect(source).toContain("overProviderLimit");
     });
   }
 );

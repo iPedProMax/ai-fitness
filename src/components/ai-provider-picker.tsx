@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { AiModelStatus } from "@/lib/ai/model-catalog";
+import { getProviderMaxImages, type AiProviderChoice } from "@/lib/ai/provider-image-limits";
 
-export type AiProviderChoice = "gemini" | "cloudflare" | "groq";
-const choices: { id: AiProviderChoice; label: string; maxImages: number }[] = [
-  { id: "gemini", label: "Google Gemini", maxImages: 10 },
-  { id: "cloudflare", label: "Cloudflare Workers AI", maxImages: 1 },
-  { id: "groq", label: "GroqCloud (text only)", maxImages: 0 },
+export type { AiProviderChoice } from "@/lib/ai/provider-image-limits";
+const choices: { id: AiProviderChoice; label: string }[] = [
+  { id: "gemini", label: "Google Gemini" },
+  { id: "cloudflare", label: "Cloudflare Workers AI" },
+  { id: "groq", label: "GroqCloud (text only)" },
 ];
 
 export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
@@ -23,7 +24,7 @@ export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
     return () => controller.abort();
   }, []);
   const selected = choices.find(choice => choice.id === value)!;
-  const supported = photoCount <= selected.maxImages;
+  const supported = photoCount <= getProviderMaxImages(selected.id);
   const status = statuses?.find(item => item.id === value);
   return (
     <div className="mb-5 max-w-2xl rounded-xl border border-slate-200 bg-white p-4">

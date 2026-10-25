@@ -21,7 +21,11 @@ function imageIdentity(file: File): string {
 export function selectMealImages(
   current: readonly File[],
   incoming: readonly File[],
+  maxImages: number = MAX_MEAL_IMAGES,
 ): MealImageSelection {
+  if (!Number.isInteger(maxImages) || maxImages < 0 || maxImages > MAX_MEAL_IMAGES) {
+    throw new RangeError("Unsupported provider image limit.");
+  }
   const images = [...current];
   const known = new Set(current.map(imageIdentity));
   let added = 0;
@@ -50,7 +54,7 @@ export function selectMealImages(
       duplicate++;
       continue;
     }
-    if (images.length >= MAX_MEAL_IMAGES) {
+    if (images.length >= maxImages) {
       overLimit++;
       continue;
     }
@@ -65,7 +69,9 @@ export function selectMealImages(
   if (oversized) notices.push("Each photo must be 10 MB or smaller.");
   if (empty) notices.push("Empty photo files cannot be uploaded.");
   if (duplicate) notices.push("Duplicate photos were skipped.");
-  if (overLimit) notices.push(`You can attach up to ${MAX_MEAL_IMAGES} photos per analysis.`);
+  if (overLimit) notices.push(maxImages === 0
+    ? "This provider supports text only. Switch to Manual / Text."
+    : `You can attach up to ${maxImages} photo${maxImages === 1 ? "" : "s"} per analysis.`);
 
   return { images, added, notice: notices.length ? notices.join(" ") : null };
 }
