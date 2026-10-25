@@ -8,6 +8,7 @@ import {
 
 import { AddMealButton } from "@/components/add-meal-button";
 import { LogFoodPanel } from "@/components/log-food-panel";
+import { MAX_MEAL_IMAGES, selectMealImages } from "@/lib/meal-image-selection";
 
 import { AiHttpError } from "@/lib/ai-submission";
 
@@ -25,7 +26,7 @@ import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
 
-const MAX_IMAGES = 10;
+const MAX_IMAGES = MAX_MEAL_IMAGES;
 
 type ImageThumbnailProps = {
   file: File;
@@ -200,66 +201,13 @@ export default function Home() {
     return `${file.name}-${file.size}-${file.lastModified}`;
   }
 
-  function addImages(
-    incoming: File[]
-  ) {
-    const supported =
-      incoming.filter(
-        (file) =>
-          [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-          ].includes(
-            file.type
-          )
-      );
+  function addImages(incoming: File[]) {
+    const selection = selectMealImages(images, incoming);
+    setImageNotice(selection.notice);
 
-    const existingKeys =
-      new Set(
-        images.map(fileKey)
-      );
+    if (selection.added === 0) return;
 
-    const unique =
-      supported.filter(
-        (file) =>
-          !existingKeys.has(
-            fileKey(file)
-          )
-      );
-
-    const remaining =
-      MAX_IMAGES -
-      images.length;
-
-    const accepted =
-      unique.slice(
-        0,
-        remaining
-      );
-
-    if (
-      unique.length >
-      remaining
-    ) {
-      setImageNotice(
-        "You can attach up to 10 images per analysis."
-      );
-    } else {
-      setImageNotice(null);
-    }
-
-    if (
-      accepted.length === 0
-    ) {
-      return;
-    }
-
-    setImages([
-      ...images,
-      ...accepted,
-    ]);
-
+    setImages(selection.images);
     resetAnalysis();
   }
 
