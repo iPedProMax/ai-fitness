@@ -16,6 +16,7 @@ import { getProviderMaxImages } from "@/lib/ai/provider-image-limits";
 import { AiHttpError } from "@/lib/ai-submission";
 
 import { foodEmoji } from "@/lib/food-emoji";
+import { hasMaterialCalorieMacroMismatch } from "@/lib/ai/nutrition-consistency";
 import { ClarificationCard } from "@/components/clarification-card";
 import {
   isUnknownVarietyAnswer,
@@ -722,7 +723,11 @@ export default function Home() {
 
               {refineError && (
                 <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                  {refineError}
+                  <div>
+  <p className="font-semibold">Clarification could not be applied.</p>
+  <p className="mt-1">{refineError}</p>
+  <p className="mt-1">The previous estimate is still shown. It has not been updated by that answer.</p>
+</div>
                 </div>
               )}
 
@@ -917,7 +922,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {clarifications.length >
+                  {(providerId === "groq" || providerId === "cloudflare") &&
+                     foods.some(hasMaterialCalorieMacroMismatch) && (
+                       <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                         Nutrition check: calories and the listed macros do not fully agree. Fibre, rounding, or an incomplete estimate may explain the difference. Review the label and serving size before saving.
+                       </p>
+                     )}
+                   {clarifications.length >
                     0 && (
                     <div className="mt-4 space-y-3">
                       <div>
