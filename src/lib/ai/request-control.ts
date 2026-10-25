@@ -8,6 +8,7 @@ import { controlRequest, type ControlResult } from "./control-store";
 import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
 import { isGeminiModelId } from "./model-catalog";
+import { groqCompletionTokens } from "./providers/groq";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -108,12 +109,17 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
 function extraProviderReservation(id: string, request: AiGenerationRequest): number | null {
   if (id !== "groq" && id !== "cloudflare") return null;
   const imageCount = request.input.filter(part => part.type === "image").length;
-  if (id === "groq" && imageCount > 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "groq" && imageCount > 3) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: request.responseSchema }), "utf8");
-  const tokens = Math.ceil(bytes * 1.25) + 1024 + (id === "groq" ? 2048 : 4096) + imageCount * 2048;
+  // Conservative approximation, NOT exact model tokenization or Groq billing.
+  // Three 2048-token images nearly exhaust Free-tier 8K TPM; reject before dispatch
+  // if prompt/schema + output headroom cannot fit. Never truncate selected photos.
+  const tokens = id === "groq"
+    ? Math.ceil(bytes / 3) + imageCount * 2048 + groqCompletionTokens(imageCount) + 256
+    : Math.ceil(bytes * 1.25) + 1024 + 4096 + imageCount * 2048;
   if (tokens > (id === "groq" ? 7800 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
   return tokens;
 }

@@ -103,10 +103,12 @@ describe("single Gemini model admission", () => {
     expect(provider).toHaveBeenCalledExactlyOnceWith("cloudflare");
   });
 
-  it("accepts Groq only for text", async () => {
-    provider.mockReturnValue({ ...defaultProvider, id: "groq", capabilities: { ...defaultProvider.capabilities, vision: false, maxImages: 0 } });
-    expect(await selectRequestedAiModel("groq", 0)).toMatchObject({ provider: { id: "groq" } });
-    expect((await selectRequestedAiModel("groq", 1)).error?.status).toBe(422);
+  it("allows Groq text and up to three photos, rejecting a fourth before accounting", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "groq", capabilities: { ...defaultProvider.capabilities, vision: true, maxImages: 3 } });
+    for (const count of [0, 1, 2, 3]) {
+      expect(await selectRequestedAiModel("groq", count)).toMatchObject({ provider: { id: "groq" } });
+    }
+    expect((await selectRequestedAiModel("groq", 4)).error?.status).toBe(422);
   });
 
   it("rejects excessive image counts with the normal compatibility error", async () => {

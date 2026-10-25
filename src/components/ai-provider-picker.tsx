@@ -8,7 +8,7 @@ export type { AiProviderChoice } from "@/lib/ai/provider-image-limits";
 const choices: { id: AiProviderChoice; label: string }[] = [
   { id: "gemini", label: "Google Gemini" },
   { id: "cloudflare", label: "Cloudflare Workers AI" },
-  { id: "groq", label: "GroqCloud (text only)" },
+  { id: "groq", label: "GroqCloud (Qwen Vision)" },
 ];
 
 export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
@@ -40,7 +40,7 @@ export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
         })}
       </select>
       <p role="status" className="mt-2 text-xs text-slate-600">
-        {!supported ? value === "groq" ? "Groq only supports text. Choose Gemini or Cloudflare for photos."
+        {!supported ? value === "groq" ? "Groq supports up to three photos per request. Remove extras or choose Gemini."
           : "Cloudflare currently supports one photo per request. Choose Gemini for multiple photos."
           : status?.enabled === false ? (status.reason ?? "This provider is unavailable right now.")
           : "Only the selected provider is used. No automatic switching or paid fallback."}

@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
+import { groqPhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import {
   enforceVarietyClarifications,
 } from "../../../../lib/variety-clarification";
@@ -405,12 +406,12 @@ async function handlePost(
       [
         {
           type: "text",
-          text: foodAnalysisPrompt,
+          text: provider.id === "groq" ? groqPhotoPrompt : foodAnalysisPrompt,
         },
 
         {
           type: "text",
-          text: `
+          text: provider.id === "groq" ? `The user supplied ${images.length} images. Use all evidence.` : `
 The user supplied ${images.length} image${images.length === 1 ? "" : "s"}.
 
 The images are NOT manually classified.

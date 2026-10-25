@@ -1,9 +1,9 @@
 /** Client and server-facing UI policy. Keep aligned with the active adapter capabilities.
- * Groq stays text-only until its vision transport and accounting are implemented. */
+ * Groq vision uses Qwen 3.8 with three images per request. */
 export const PROVIDER_IMAGE_LIMITS = {
   gemini: 10,
   cloudflare: 1,
-  groq: 0,
+  groq: 3,
 } as const;
 
 export type AiProviderChoice = keyof typeof PROVIDER_IMAGE_LIMITS;

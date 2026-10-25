@@ -4,7 +4,7 @@ export const aiModelCatalog = [
   { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", maxImages: 10, text: true, vision: true },
   { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", maxImages: 10, text: true, vision: true },
   { id: "cloudflare", name: "Cloudflare Workers AI", maxImages: 1, text: true, vision: true },
-  { id: "groq", name: "GroqCloud", maxImages: 0, text: true, vision: false },
+  { id: "groq", name: "GroqCloud (Qwen 3.8)", maxImages: 3, text: true, vision: true },
   { id: "openrouter", name: "OpenRouter", maxImages: 0, text: false, vision: false },
   { id: "mistral", name: "Mistral AI", maxImages: 0, text: false, vision: false },
   { id: "huggingface", name: "Hugging Face", maxImages: 0, text: false, vision: false },

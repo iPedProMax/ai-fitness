@@ -16,9 +16,9 @@ describe("explicit Multi-AI provider opt-in", () => {
     expect(getAiProvider("groq")).toBeNull();
     expect(getAiProvider("cloudflare")).toBeNull();
   });
-  it("allows the text-only Groq adapter only after explicit server opt-in", () => {
+  it("allows Groq vision only after explicit server opt-in", () => {
     vi.stubEnv("AI_ENABLE_GROQ_FREE", "true");
-    expect(getAiProvider("groq")?.capabilities).toMatchObject({ text: true, vision: false, maxImages: 0 });
+    expect(getAiProvider("groq")?.capabilities).toMatchObject({ text: true, vision: true, maxImages: 3 });
   });
   it("allows the single-image Cloudflare adapter only after explicit server opt-in", () => {
     vi.stubEnv("AI_ENABLE_CLOUDFLARE_FREE", "true");
