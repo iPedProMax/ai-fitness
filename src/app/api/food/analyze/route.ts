@@ -15,6 +15,7 @@ import {
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
+import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
 import {
   enforceVarietyClarifications,
 } from "../../../../lib/variety-clarification";
@@ -636,7 +637,9 @@ Associate it with other images only when the connection is reasonably supported.
       );
 
     return NextResponse.json(
-      result
+      provider.id === "gemini"
+        ? result
+        : pruneFreeProviderClarifications(result)
     );
   } catch (error) {
     const routingError = aiRoutingErrorResponse(error);

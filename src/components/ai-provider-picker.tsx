@@ -27,7 +27,7 @@ export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
   const supported = photoCount <= getProviderMaxImages(selected.id);
   const status = statuses?.find(item => item.id === value);
   return (
-    <div className="mb-5 max-w-2xl rounded-xl border border-slate-200 bg-white p-4">
+    <div className="mx-auto mb-5 max-w-2xl rounded-xl border border-slate-200 bg-white p-4">
       <label htmlFor="ai-provider-choice" className="block text-sm font-semibold text-slate-800">AI provider</label>
       <select id="ai-provider-choice" value={value}
         onChange={event => onChange(event.target.value as AiProviderChoice)}
