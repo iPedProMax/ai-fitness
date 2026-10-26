@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TodayOverview } from "@/components/today-overview";
 import { DashboardSpotlight } from "@/components/dashboard-spotlight";
+import { AiUsageCounter } from "@/components/ai-usage-counter";
 
 export default function DashboardPage() {
   return (
@@ -40,9 +41,11 @@ export default function DashboardPage() {
 
         </DashboardSpotlight>
 
+        <AiUsageCounter />
+
         <TodayOverview />
 
-        <section className="mt-9 grid gap-5 lg:grid-cols-2">
+        <section className="mt-9 grid gap-5 lg:grid-cols-3">
           <Link
             href="/"
             className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-emerald-300 hover:shadow-md"
@@ -86,7 +89,24 @@ export default function DashboardPage() {
               View saved meals →
             </p>
           </Link>
+          <Link
+            href="/activities"
+            className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-emerald-300 hover:shadow-md"
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-xl text-emerald-700">
+              🏋️
+            </div>
+            <h2 className="text-lg font-bold">Exercise & Activities</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Log workouts for free and track estimated calories burned.
+            </p>
+            <p className="mt-5 text-sm font-bold text-emerald-700">Log an activity →</p>
+          </Link>
         </section>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/goals" className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50">Set personal goals →</Link>
+          <Link href="/reports" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100">View daily reports →</Link>
+        </div>
       </div>
     </main>
   );

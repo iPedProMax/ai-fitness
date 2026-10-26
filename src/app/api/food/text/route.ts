@@ -1,12 +1,15 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
-import { GoogleGenAI } from "@google/genai";
+import { reserveAiUsage } from "@/lib/ai-usage";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { foodAnalysisSchema, foodAnalysisJsonSchema } from "@/lib/food-analysis";
 import { enforceBrandClarifications } from "@/lib/brand-clarification";
 import { enforceVarietyClarifications } from "@/lib/variety-clarification";
 import { validateFoodText } from "@/lib/food-text-input";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const authError = await requireFoodApiAuth();
   if (authError) return authError;
 
@@ -23,14 +26,16 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
-  }
+  const rawModel = body !== null && typeof body === "object" ?
+    (body as Record<string, unknown>).model : undefined;
+  const chosen = await selectRequestedAiModel(rawModel, 0);
+  if (chosen.error) return chosen.error;
+  const provider = chosen.provider;
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.interactions.create({
-      model: "gemini-3.5-flash-lite",
+    const quotaError = await reserveAiUsage("analysis");
+    if (quotaError) return quotaError;
+
+    const response = await provider.generate({
       input: [{
         type: "text",
         text: [
@@ -53,16 +58,13 @@ export async function POST(request: Request) {
           "----- END DESCRIPTION -----",
         ].join("\n"),
       }],
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: foodAnalysisJsonSchema,
-      },
+      responseSchema: foodAnalysisJsonSchema,
+      signal: request.signal,
     });
-    if (!response.output_text) {
+    if (!response.outputText) {
       return NextResponse.json({ error: "AI returned no food estimate." }, { status: 502 });
     }
-    const parsed = foodAnalysisSchema.parse(JSON.parse(response.output_text));
+    const parsed = foodAnalysisSchema.parse(JSON.parse(response.outputText));
     if (parsed.foods.length === 0 || parsed.foods.length > 10) {
       return NextResponse.json({ error: "Please describe between 1 and 10 foods." }, { status: 422 });
     }
@@ -84,7 +86,13 @@ export async function POST(request: Request) {
     const result = enforceVarietyClarifications(withBrands);
     return NextResponse.json(result);
   } catch (error) {
-    console.error("AI text nutrition estimation failed:", error);
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
+    console.error("AI text nutrition estimation failed.");
     return NextResponse.json({ error: "Could not estimate food from text. Try a clearer description." }, { status: 502 });
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }

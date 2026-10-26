@@ -1,5 +1,8 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
-import { GoogleGenAI } from "@google/genai";
+import { reserveAiUsage } from "@/lib/ai-usage";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -15,6 +18,7 @@ const refineRequestSchema = z.object({
   analysis: foodAnalysisSchema,
   clarificationId: z.string().min(1),
   answer: z.string().min(1),
+  model: z.string().optional(),
 });
 
 const followUpClarificationSchema =
@@ -183,7 +187,7 @@ function combineNotes(
   return `${original} ${added}`;
 }
 
-export async function POST(
+async function handlePost(
   request: Request
 ) {
   const authError = await requireFoodApiAuth();
@@ -444,25 +448,12 @@ export async function POST(
      * final arithmetic.
      */
 
-    const apiKey =
-      process.env.GEMINI_API_KEY;
+    const chosen = await selectRequestedAiModel(requestResult.data.model, 0);
+    if (chosen.error) return chosen.error;
+    const provider = chosen.provider;
 
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Gemini API key is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const ai =
-      new GoogleGenAI({
-        apiKey,
-      });
+    const quotaError = await reserveAiUsage("refinement");
+    if (quotaError) return quotaError;
 
     const prompt = `
 You are refining an existing food nutrition analysis after the user answered a clarification.
@@ -629,11 +620,8 @@ Explain this in notes.
 Return ONLY the additive refinement plan.
 `;
 
-    const interaction =
-      await ai.interactions.create({
-        model:
-          "gemini-3.5-flash-lite",
-
+    const resultFromProvider =
+      await provider.generate({
         input: [
           {
             type: "text",
@@ -641,19 +629,12 @@ Return ONLY the additive refinement plan.
           },
         ],
 
-        response_format: {
-          type: "text",
-
-          mime_type:
-            "application/json",
-
-          schema:
-            additiveRefinementJsonSchema,
-        },
+        responseSchema: additiveRefinementJsonSchema,
+        signal: request.signal,
       });
 
     const outputText =
-      interaction.output_text;
+      resultFromProvider.outputText;
 
     if (!outputText) {
       return NextResponse.json(
@@ -853,8 +834,7 @@ Return ONLY the additive refinement plan.
     }
 
     console.error(
-      "Invalid additive refinement response:",
-      additiveResult.error
+      "Invalid additive refinement response."
     );
 
     return NextResponse.json(
@@ -867,9 +847,10 @@ Return ONLY the additive refinement plan.
       }
     );
   } catch (error) {
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
     console.error(
-      "Gemini food refinement failed:",
-      error
+      "Gemini food refinement failed."
     );
 
     return NextResponse.json(
@@ -882,4 +863,8 @@ Return ONLY the additive refinement plan.
       }
     );
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }

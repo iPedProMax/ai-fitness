@@ -1,3 +1,12 @@
+// This suite tests route/adapter behavior. Durable admission and production
+// accounting are exercised without this mock in request-control integration tests.
+vi.mock("@/lib/ai/request-control", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ai/request-control")>(),
+  guardProvider: (provider: import("@/lib/ai/types").AiProvider) => provider,
+}));
+vi.mock("@/lib/ai-usage", () => ({
+  reserveAiUsage: async () => null,
+}));
 vi.mock("@/lib/food-api-auth", () => ({
   requireFoodApiAuth: async () => null,
 }));

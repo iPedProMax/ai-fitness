@@ -1,5 +1,9 @@
+import { withAiRequest } from "@/lib/ai/request-control";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
-import { GoogleGenAI } from "@google/genai";
+import { reserveAiUsage } from "@/lib/ai-usage";
+import { selectRequestedAiModel } from "@/lib/ai/selected-model";
+import { aiRoutingErrorResponse } from "@/lib/ai/errors";
+import type { AiImageMimeType, AiInputPart } from "@/lib/ai/types";
 import { NextResponse } from "next/server";
 
 import {
@@ -9,6 +13,10 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
+import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
+import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
+import { ensureFreeProviderScaleClarifications } from "@/lib/ai/free-provider-scale";
+import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
 import {
   enforceVarietyClarifications,
 } from "../../../../lib/variety-clarification";
@@ -29,22 +37,6 @@ const MAX_IMAGE_SIZE =
   10 * 1024 * 1024;
 
 const MAX_IMAGES = 10;
-
-type SupportedMimeType =
-  | "image/jpeg"
-  | "image/png"
-  | "image/webp";
-
-type GeminiInputPart =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "image";
-      data: string;
-      mime_type: SupportedMimeType;
-    };
 
 function getLegacyImage(
   formData: FormData,
@@ -97,7 +89,7 @@ function validateImage(
 
 async function createImagePart(
   image: File
-): Promise<GeminiInputPart> {
+): Promise<AiInputPart> {
   const bytes = Buffer.from(
     await image.arrayBuffer()
   );
@@ -109,8 +101,8 @@ async function createImagePart(
       "base64"
     ),
 
-    mime_type:
-      image.type as SupportedMimeType,
+    mimeType:
+      image.type as AiImageMimeType,
   };
 }
 
@@ -314,12 +306,13 @@ function enforceMaterialUncertaintyClarifications(
   };
 }
 
-export async function POST(
+async function handlePost(
   request: Request
 ) {
   const authError = await requireFoodApiAuth();
   if (authError) return authError;
 
+  let selectedProviderId = "gemini";
   try {
     const formData =
       await request.formData();
@@ -406,37 +399,24 @@ export async function POST(
       }
     }
 
-    const apiKey =
-      process.env
-        .GEMINI_API_KEY;
+    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
+    if (chosen.error) return chosen.error;
+    const provider = chosen.provider;
+    selectedProviderId = provider.id;
 
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Gemini API key is not configured.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+    const quotaError = await reserveAiUsage("analysis");
+    if (quotaError) return quotaError;
 
-    const ai =
-      new GoogleGenAI({
-        apiKey,
-      });
-
-    const input: GeminiInputPart[] =
+    const input: AiInputPart[] =
       [
         {
           type: "text",
-          text: foodAnalysisPrompt,
+          text: provider.id === "groq" ? groqPhotoPrompt : provider.id === "cloudflare" ? cloudflarePhotoPrompt : foodAnalysisPrompt,
         },
 
         {
           type: "text",
-          text: `
+          text: provider.id === "groq" ? `Photos: ${images.length}.` : provider.id === "cloudflare" ? `One image. Use its visible evidence.` : `
 The user supplied ${images.length} image${images.length === 1 ? "" : "s"}.
 
 The images are NOT manually classified.
@@ -588,7 +568,7 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
       input.push({
         type: "text",
 
-        text: `IMAGE ${index + 1} OF ${images.length}
+        text: provider.id === "groq" ? `Image ${index + 1}/${images.length}.` : provider.id === "cloudflare" ? "Inspect this photo as evidence; identify its role." : `IMAGE ${index + 1} OF ${images.length}
 
 Inspect this image and determine its role from the visual evidence.
 
@@ -602,28 +582,14 @@ Associate it with other images only when the connection is reasonably supported.
       );
     }
 
-    const interaction =
-      await ai.interactions.create(
-        {
-          model:
-            "gemini-3.5-flash-lite",
-
-          input,
-
-          response_format: {
-            type: "text",
-
-            mime_type:
-              "application/json",
-
-            schema:
-              foodAnalysisJsonSchema,
-          },
-        }
-      );
+    const resultFromProvider = await provider.generate({
+      input,
+      responseSchema: foodAnalysisJsonSchema,
+      signal: request.signal,
+    });
 
     const outputText =
-      interaction.output_text;
+      resultFromProvider.outputText;
 
     if (!outputText) {
       return NextResponse.json(
@@ -645,8 +611,15 @@ Associate it with other images only when the connection is reasonably supported.
         parsed
       );
 
+    const providerNormalized = (provider.id === "groq" || provider.id === "cloudflare")
+      ? normalizeSingleFoodProvider(parsedResult)
+      : parsedResult;
     const withScaleClarifications =
-      normalizeScaleClarifications(parsedResult);
+      normalizeScaleClarifications(
+        provider.id === "groq" || provider.id === "cloudflare"
+          ? ensureFreeProviderScaleClarifications(providerNormalized)
+          : providerNormalized
+      );
 
     const withDrinkClarifications =
       enforcePreparedDrinkClarifications(
@@ -669,12 +642,23 @@ Associate it with other images only when the connection is reasonably supported.
       );
 
     return NextResponse.json(
-      result
+      provider.id === "gemini"
+        ? result
+        : pruneFreeProviderClarifications(result)
     );
   } catch (error) {
+    const routingError = aiRoutingErrorResponse(error);
+    if (routingError) return routingError;
+    if (selectedProviderId !== "gemini") {
+      // Never expose upstream bodies, prompts, image content, or tokens.
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({ provider: selectedProviderId,
+        category: error instanceof SyntaxError ? "JSON_PARSE" :
+          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER" }));
+      return NextResponse.json({ error: "This provider could not complete a valid nutrition estimate. Try fewer photos or select Gemini.",
+        code: "AI_INVALID_NUTRITION" }, { status: 502 });
+    }
     console.error(
-      "Gemini food analysis failed:",
-      error
+      "Gemini food analysis failed."
     );
 
     return NextResponse.json(
@@ -687,4 +671,8 @@ Associate it with other images only when the connection is reasonably supported.
       }
     );
   }
+}
+
+export async function POST(request: Request) {
+  return withAiRequest(request, () => handlePost(request));
 }

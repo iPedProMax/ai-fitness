@@ -39,14 +39,22 @@ const navItems: NavItem[] = [
   },
   {
     label: "Daily Reports",
+    href: "/reports",
+    icon: "reports",
+  },
+  {
+    label: "Goals",
+    href: "/goals",
     icon: "reports",
   },
   {
     label: "Activities",
+    href: "/activities",
     icon: "activities",
   },
   {
     label: "Settings",
+    href: "/settings",
     icon: "settings",
   },
 ];
@@ -174,7 +182,11 @@ export function AppShell({
   const isAppRoute =
     pathname === "/" ||
     pathname === "/dashboard" ||
-    pathname === "/meals";
+    pathname === "/meals" ||
+    pathname === "/activities" ||
+    pathname === "/reports" ||
+    pathname === "/goals" ||
+    pathname === "/settings";
 
   // Login, sign-up and authentication callbacks
   // keep their original pages without the sidebar.
@@ -187,7 +199,15 @@ export function AppShell({
       ? "Dashboard"
       : pathname === "/meals"
         ? "Meal History"
-        : "Log Food";
+        : pathname === "/activities"
+          ? "Activities"
+          : pathname === "/reports"
+            ? "Daily Reports"
+            : pathname === "/goals"
+              ? "Personal Goals"
+          : pathname === "/settings"
+            ? "Settings"
+            : "Log Food";
 
   return (
     <div className="min-h-screen w-full bg-slate-50 text-slate-900">

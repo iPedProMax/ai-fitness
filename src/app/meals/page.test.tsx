@@ -147,6 +147,29 @@ describe("Meal History page", () => {
     );
   });
 
+  it("shows fractional macros without rounding away tenths", async () => {
+    orderMock.mockResolvedValue({
+      data: [{
+        id: "meal-decimal",
+        created_at: "2026-10-23T06:00:00Z",
+        consumed_at: "2026-10-23T06:00:00Z",
+        total_calories: 375,
+        total_protein: 20,
+        total_carbs: 48,
+        total_fat: 11.5,
+        notes: "",
+        meal_items: [],
+      }],
+      error: null,
+    });
+
+    const html = renderToStaticMarkup(await MealsPage());
+    expect(html).toContain("375 kcal");
+    expect(html).toContain("20 g");
+    expect(html).toContain("48 g");
+    expect(html).toContain("11.5 g");
+  });
+
   it("shows eating and logging timestamps separately", async () => {
     orderMock.mockResolvedValue({
       data: [

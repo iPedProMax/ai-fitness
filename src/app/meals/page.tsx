@@ -29,6 +29,10 @@ function formatNumber(value: number) {
   return Math.round(Number(value));
 }
 
+function formatMacro(value: number) {
+  return Math.round(Number(value) * 10) / 10;
+}
+
 
 export default async function MealsPage() {
   const supabase = await createClient();
@@ -147,7 +151,7 @@ export default async function MealsPage() {
                       <p className="mt-1 font-semibold">
                         {meal.analysis_snapshot?.foods?.some((food) =>
                           food.unknownMacros?.includes(String(label).toLowerCase() as "protein" | "carbs" | "fat")
-                        ) ? "Unknown" : `${formatNumber(Number(value))} g`}
+                        ) ? "Unknown" : `${formatMacro(Number(value))} g`}
                       </p>
                     </div>
                   ))}

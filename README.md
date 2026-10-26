@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Fitness
 
-## Getting Started
+AI Fitness is a nutrition and fitness tracking web app built with Next.js, TypeScript, Tailwind CSS, Supabase, and Gemini. Signed-in users can analyze food photos or descriptions, log food manually, save meals, track activities, set calorie/protein goals, estimate TDEE, record weight, and review nutrition reports.
 
-First, run the development server:
+Manual food and exercise tracking and the TDEE calculator are free and use no AI credits. Each authenticated user has 20 AI analyses and a separate 60-call AI clarification allowance per day, resetting at midnight Philippine time. Exercise-calorie displays are optional; smartwatch calorie entry remains available when displays are hidden.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Project documentation
+
+- [AGENTS.md](AGENTS.md): development rules, safety requirements, and verification commands.
+- [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md): architecture, implemented features, product decisions, known issues, and the current local checkpoint.
+- [ROADMAP.md](ROADMAP.md): exact phase order, planned enhancements, and the next task.
+- [Historical designs and plans](docs/superpowers/): earlier rationale; some specifications differ from current behavior.
+- [Cloudflare private local setup](docs/cloudflare-workers-ai-setup.md): server-only variable names for the disabled adapter; credentials alone do not activate it.
+
+## Local development
+
+Use a Node.js version supported by the installed Next.js release and npm. Start in the authorized `feature/supabase-auth` worktree and inspect Git status before changes.
+
+Install the lockfile dependencies, then start development:
+
+```powershell
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [localhost:3000](http://localhost:3000). On other shells use `npm` instead of `npm.cmd`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Local authentication/data flows require private local Supabase configuration; AI analysis also requires server-only Gemini configuration. Arrange configuration with the project owner. Do not print, share, or commit credentials or environment-file contents. Paid AI calls require explicit approval.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The SQL files under `supabase/migrations/` describe the checked-in schema. Confirm the target project and migration state before applying anything; production schema/data changes require approval. A migration for `meals.consumed_at` is currently missing from the repository, so these files alone do not recreate the full schema expected by the app. See `PROJECT_CONTEXT.md` before database setup.
 
-## Learn More
+## Verification
 
-To learn more about Next.js, take a look at the following resources:
+```powershell
+npx.cmd --no-install vitest run
+npm.cmd run lint
+npm.cmd run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Vitest tests live alongside the source; there is no `npm test` script. Feature work requires meaningful tests, the complete test suite, and a production build. Tests should mock AI providers rather than incur paid calls. See `PROJECT_CONTEXT.md` for the latest actual verification results and any baseline failures.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Development status
 
-## Deploy on Vercel
+Phases 1-5 are owner-confirmed completed milestones with implementations present in source. The daily meal calorie planner remains a pending Phase 5 enhancement. Phase 6 now has local durable idempotency, distributed limits/cooldowns/concurrency, bounded fallback, kill switches, and a disabled real Groq text adapter. Gemini is the only production registration; AI execution defaults disabled until approved migration/configuration. Paid execution is blocked. The AI Fitness Coach remains Phase 7 with a separately proposed allowance. Read [Phase 6 operations](docs/phase-6-operations.md) before configuring AI: Gemini now uses a conservative request-size estimate with a fixed output cap; actual account quotas and staging quality still require verification. Groq retains its disabled full-model reservation, replay cleanup requires scheduling, and live activation is not approved. See `PROJECT_CONTEXT.md` for verified checks and remaining limitations.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Do not commit, push, deploy, modify production Supabase schemas/data, or make paid API calls without explicit approval. Preserve unrelated changes and untracked files.

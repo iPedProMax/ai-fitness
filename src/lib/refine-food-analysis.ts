@@ -1,3 +1,4 @@
+import { submitAiRequest, foodApiError, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -6,9 +7,10 @@ import {
 export async function refineFoodAnalysis(
   analysis: FoodAnalysis,
   clarificationId: string,
-  answer: string
+  answer: string,
+  options?: AiSubmissionOptions
 ): Promise<FoodAnalysis> {
-  const response = await fetch("/api/food/refine", {
+  const response = await submitAiRequest("/api/food/refine", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -17,15 +19,14 @@ export async function refineFoodAnalysis(
       analysis,
       clarificationId,
       answer,
+      model: options?.modelId,
     }),
-  });
+  }, options);
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.error ?? "Failed to refine food analysis."
-    );
+    throw foodApiError(data, "Failed to refine food analysis.", response.headers.get("Retry-After"));
   }
 
   return foodAnalysisSchema.parse(data);

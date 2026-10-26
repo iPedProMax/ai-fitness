@@ -1,3 +1,4 @@
+import { submitAiRequest, foodApiError, type AiSubmissionOptions } from "./ai-submission";
 import {
   foodAnalysisSchema,
   type FoodAnalysis,
@@ -10,7 +11,8 @@ export type FoodAnalysisInput = {
 const MAX_IMAGES = 10;
 
 export async function analyzeFood(
-  input: File | File[] | FoodAnalysisInput
+  input: File | File[] | FoodAnalysisInput,
+  options?: AiSubmissionOptions
 ): Promise<FoodAnalysis> {
   const images =
     input instanceof File
@@ -36,22 +38,20 @@ export async function analyzeFood(
   images.forEach((image) => {
     formData.append("images", image);
   });
+  if (options?.modelId) formData.append("model", options.modelId);
 
-  const response = await fetch(
+  const response = await submitAiRequest(
     "/api/food/analyze",
     {
       method: "POST",
       body: formData,
-    }
+    }, options
   );
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.error ??
-        "Food analysis failed."
-    );
+    throw foodApiError(data, "Food analysis failed.", response.headers.get("Retry-After"));
   }
 
   return foodAnalysisSchema.parse(

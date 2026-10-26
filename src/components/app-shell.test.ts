@@ -27,6 +27,7 @@ describe("AI Fitness application shell", () => {
     expect(shell).toContain('href: "/dashboard"');
     expect(shell).toContain('href: "/"');
     expect(shell).toContain('href: "/meals"');
+    expect(shell).toContain('href: "/activities"');
     expect(shell).toContain("aria-current=");
   });
 
@@ -41,12 +42,12 @@ describe("AI Fitness application shell", () => {
     expect(shell).toContain('onNavigate={() => setMobileOpen(false)}');
   });
 
-  it("marks unfinished sections as upcoming instead of linking to missing pages", () => {
+  it("links to protected reports, goals and settings pages", () => {
     expect(shell).toContain('label: "Daily Reports"');
-    expect(shell).toContain('label: "Activities"');
+    expect(shell).toContain('href: "/reports"');
+    expect(shell).toContain('href: "/goals"');
     expect(shell).toContain('label: "Settings"');
-    expect(shell).toContain("Coming soon".replace("Coming soon", "Soon"));
-    expect(shell).toContain('aria-disabled="true"');
+    expect(shell).toContain('href: "/settings"');
   });
 
   it("provides scanner and meal-history quick actions", () => {

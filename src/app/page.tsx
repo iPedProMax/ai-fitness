@@ -7,8 +7,17 @@ import {
 } from "react";
 
 import { AddMealButton } from "@/components/add-meal-button";
+import { FoodCorrectionPanel } from "@/components/food-correction-panel";
 import { LogFoodPanel } from "@/components/log-food-panel";
+import { AiProviderPicker } from "@/components/ai-provider-picker";
+import type { AiProviderChoice } from "@/components/ai-provider-picker";
+import { selectMealImages } from "@/lib/meal-image-selection";
+import { getProviderMaxImages } from "@/lib/ai/provider-image-limits";
+
+import { AiHttpError } from "@/lib/ai-submission";
+
 import { foodEmoji } from "@/lib/food-emoji";
+import { hasMaterialCalorieMacroMismatch } from "@/lib/ai/nutrition-consistency";
 import { ClarificationCard } from "@/components/clarification-card";
 import {
   isUnknownVarietyAnswer,
@@ -22,7 +31,6 @@ import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
 
-const MAX_IMAGES = 10;
 
 type ImageThumbnailProps = {
   file: File;
@@ -81,6 +89,7 @@ function ImageThumbnail({
 
 export default function Home() {
   const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
+  const [providerId, setProviderId] = useState<AiProviderChoice>("gemini");
   const [
     images,
     setImages,
@@ -124,6 +133,10 @@ export default function Home() {
     string | null
   >(null);
 
+  // Per-provider countdowns, used only when the server supplies Retry-After.
+  const [cooldownUntil, setCooldownUntil] = useState({ groq: 0, cloudflare: 0 });
+  const [cooldownClock, setCooldownClock] = useState(0);
+
   const [
     selectedAnswers,
     setSelectedAnswers,
@@ -150,6 +163,28 @@ export default function Home() {
 
   const hasImages =
     images.length > 0;
+  const MAX_IMAGES = getProviderMaxImages(providerId);
+  const overProviderLimit = images.length > MAX_IMAGES;
+  const activeCooldownUntil = providerId === "groq" || providerId === "cloudflare"
+    ? cooldownUntil[providerId] : 0;
+  const cooldownSeconds = Math.max(0, Math.ceil((activeCooldownUntil - cooldownClock) / 1000));
+
+  useEffect(() => {
+    if (activeCooldownUntil === 0 || cooldownSeconds === 0) return;
+    const timer = window.setInterval(() => setCooldownClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeCooldownUntil, cooldownSeconds]);
+
+  function captureKnownCooldown(error: unknown) {
+    const provider = providerId;
+    if (provider !== "groq" && provider !== "cloudflare") return;
+    if (!(error instanceof AiHttpError) || error.code !== "AI_PROVIDER_LIMITED") return;
+    const seconds = error.retryAfterSeconds;
+    if (!seconds) return;
+    const until = Date.now() + seconds * 1000;
+    setCooldownUntil(current => ({ ...current, [provider]: Math.max(current[provider], until) }));
+    setCooldownClock(Date.now());
+  }
 
   useEffect(() => {
     if (
@@ -197,66 +232,13 @@ export default function Home() {
     return `${file.name}-${file.size}-${file.lastModified}`;
   }
 
-  function addImages(
-    incoming: File[]
-  ) {
-    const supported =
-      incoming.filter(
-        (file) =>
-          [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-          ].includes(
-            file.type
-          )
-      );
+  function addImages(incoming: File[]) {
+    const selection = selectMealImages(images, incoming, MAX_IMAGES);
+    setImageNotice(selection.notice);
 
-    const existingKeys =
-      new Set(
-        images.map(fileKey)
-      );
+    if (selection.added === 0) return;
 
-    const unique =
-      supported.filter(
-        (file) =>
-          !existingKeys.has(
-            fileKey(file)
-          )
-      );
-
-    const remaining =
-      MAX_IMAGES -
-      images.length;
-
-    const accepted =
-      unique.slice(
-        0,
-        remaining
-      );
-
-    if (
-      unique.length >
-      remaining
-    ) {
-      setImageNotice(
-        "You can attach up to 10 images per analysis."
-      );
-    } else {
-      setImageNotice(null);
-    }
-
-    if (
-      accepted.length === 0
-    ) {
-      return;
-    }
-
-    setImages([
-      ...images,
-      ...accepted,
-    ]);
-
+    setImages(selection.images);
     resetAnalysis();
   }
 
@@ -279,7 +261,10 @@ export default function Home() {
   async function handleAnalyze() {
     if (
       !hasImages ||
-      isAnalyzing
+      isAnalyzing ||
+      MAX_IMAGES === 0 ||
+      overProviderLimit ||
+      cooldownSeconds > 0
     ) {
       return;
     }
@@ -297,14 +282,15 @@ export default function Home() {
       const result =
         await analyzeFood({
           images,
-        });
+        }, { modelId: providerId });
 
       setAnalysis(result);
     } catch (error) {
-      console.error(
-        "Food analysis failed:",
-        error
-      );
+      // Expected API errors are already shown inline. Avoid the Next.js dev overlay.
+      if (!(error instanceof AiHttpError)) {
+        console.error("Unexpected food analysis error:", error);
+      }
+      captureKnownCooldown(error);
 
       setError(
         error instanceof Error
@@ -372,6 +358,9 @@ export default function Home() {
       return;
     }
 
+    // Local "I don't know" skips above still work without an API request.
+    if (cooldownSeconds > 0) return;
+
     setSelectedAnswers(
       (current) => ({
         ...current,
@@ -392,7 +381,8 @@ export default function Home() {
         await refineFoodAnalysis(
           analysis,
           clarificationId,
-          answer
+          answer,
+          { modelId: providerId },
         );
 
       setAnalysis(refined);
@@ -416,10 +406,11 @@ export default function Home() {
         })
       );
     } catch (error) {
-      console.error(
-        "Food refinement failed:",
-        error
-      );
+      // Expected API errors are already shown inline. Avoid the Next.js dev overlay.
+      if (!(error instanceof AiHttpError)) {
+        console.error("Unexpected food refinement error:", error);
+      }
+      captureKnownCooldown(error);
 
       setSelectedAnswers(
         (current) => {
@@ -436,7 +427,9 @@ export default function Home() {
       );
 
       setRefineError(
-        "We couldn't update the estimate. Please try again."
+        error instanceof AiHttpError
+          ? error.message
+          : "We couldn't update the estimate. Please try again."
       );
     } finally {
       setRefiningClarificationId(
@@ -485,7 +478,7 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-        <section className="mb-6">
+        <section className="mx-auto mb-6 max-w-2xl">
           <p className="mb-2 text-sm font-medium text-emerald-600">
             Log Food
           </p>
@@ -495,14 +488,25 @@ export default function Home() {
           </h2>
 
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            For best results, scan 1-3 foods or drinks at a time. Add up to 10 photos, including labels, packaging, and scale photos.
+            {providerId === "groq" || providerId === "cloudflare"
+              ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "
+              : "For best results, scan 1-3 foods or drinks at a time. "}{MAX_IMAGES === 0
+              ? "This AI currently accepts text entries only."
+              : `Add up to ${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}, including labels, packaging, and scale photos.`}
           </p>
         </section>
 
-        <div className="mb-6 flex max-w-xl gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
-          <button type="button" aria-pressed={entryMode === "photo"} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📷 Photo Scanner</button>
+        <div className="mx-auto mb-6 flex max-w-2xl gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
+          <button type="button" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
           <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
         </div>
+
+        <AiProviderPicker value={providerId} onChange={next => {
+          setProviderId(next);
+          if (getProviderMaxImages(next) === 0) setEntryMode("manual");
+          setImageNotice(null);
+          resetAnalysis();
+        }} photoCount={entryMode === "photo" ? images.length : 0} />
 
         <div
           ref={uploaderRef}
@@ -566,7 +570,7 @@ export default function Home() {
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      multiple
+                      multiple={MAX_IMAGES > 1}
                       className="hidden"
                       onChange={(
                         event
@@ -604,18 +608,18 @@ export default function Home() {
                   </p>
 
                   <p className="mt-1 text-xs text-slate-400">
-                    Up to ten images.
+                    Up to {MAX_IMAGES} photo{MAX_IMAGES === 1 ? "" : "s"}.
                   </p>
                 </div>
               </div>
             )}
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
+              <label aria-disabled={images.length >= MAX_IMAGES} className={`inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition ${images.length >= MAX_IMAGES ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-slate-800"}`} >
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  multiple
+                  multiple={MAX_IMAGES > 1}
                   className="hidden"
                   disabled={
                     images.length >=
@@ -641,7 +645,7 @@ export default function Home() {
                 ＋ Upload
               </label>
 
-              <label className="inline-flex cursor-pointer items-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100">
+              <label aria-disabled={images.length >= MAX_IMAGES} className={`inline-flex items-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 transition ${images.length >= MAX_IMAGES ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-emerald-100"}`} >
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -674,6 +678,12 @@ export default function Home() {
               </label>
             </div>
 
+            {overProviderLimit && (
+              <p role="alert" className="mt-3 text-xs font-medium text-amber-700">
+                {`This AI supports ${MAX_IMAGES === 0 ? "text only" : `${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}`} per request. You have ${images.length} saved. Remove extras or switch providers; your photos have not been deleted.`}
+              </p>
+            )}
+
             {imageNotice && (
               <p className="mt-3 text-xs font-medium text-amber-600">
                 {imageNotice}
@@ -687,7 +697,10 @@ export default function Home() {
               }
               disabled={
                 !hasImages ||
-                isAnalyzing
+                isAnalyzing ||
+                MAX_IMAGES === 0 ||
+                overProviderLimit ||
+                cooldownSeconds > 0
               }
               className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
@@ -695,10 +708,17 @@ export default function Home() {
                 ? "✨ Analyzing..."
                 : "✨ Analyze Food"}
             </button>
+            {cooldownSeconds > 0 && (
+              <p role="status" className="mt-2 text-sm text-amber-700">
+                {providerId === "groq" ? "Groq" : "Cloudflare"} is cooling down. Try again in {cooldownSeconds} seconds.
+              </p>
+            )}
           </section>
 
           ) : (
-            <LogFoodPanel onReset={resetAnalysis} onResult={(result) => {
+            <LogFoodPanel
+              providerId={providerId}
+              onReset={resetAnalysis} onResult={(result) => {
               setAnalysis(result);
               setAnalysisStarted(true);
               setError(null);
@@ -740,7 +760,11 @@ export default function Home() {
 
               {refineError && (
                 <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                  {refineError}
+                  <div>
+  <p className="font-semibold">Clarification could not be applied.</p>
+  <p className="mt-1">{refineError}</p>
+  <p className="mt-1">The previous estimate is still shown. It has not been updated by that answer.</p>
+</div>
                 </div>
               )}
 
@@ -806,6 +830,7 @@ export default function Home() {
                               <p className="font-semibold">
                                 {(analysis.entryMethod === "MANUAL" || analysis.entryMethod === "TEXT_AI") && <span aria-hidden="true" className="mr-2">{foodEmoji(food.name)}</span>}
                                 {food.name}
+                                {food.userCorrected && <span className="ml-2 text-xs font-medium text-emerald-700">User corrected</span>}
                               </p>
 
                               <p className="mt-1 text-sm text-slate-500">
@@ -883,6 +908,8 @@ export default function Home() {
                     )}
                   </div>
 
+                  <FoodCorrectionPanel analysis={analysis} onApply={setAnalysis} />
+
                   <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-white">
                     <p className="text-xs text-slate-400">
                       Meal total
@@ -935,7 +962,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {clarifications.length >
+                  {(providerId === "groq" || providerId === "cloudflare") &&
+                     foods.some(hasMaterialCalorieMacroMismatch) && (
+                       <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                         Nutrition check: calories and the listed macros do not fully agree. Fibre, rounding, or an incomplete estimate may explain the difference. Review the label and serving size before saving.
+                       </p>
+                     )}
+                   {clarifications.length >
                     0 && (
                     <div className="mt-4 space-y-3">
                       <div>
@@ -953,6 +986,11 @@ export default function Home() {
                         </p>
                       </div>
 
+                      {cooldownSeconds > 0 && (
+                        <p role="status" className="text-sm font-medium text-amber-700">
+                          {providerId === "groq" ? "Groq" : "Cloudflare"} is cooling down. Clarification updates are available in {cooldownSeconds} seconds.
+                        </p>
+                      )}
                       {clarifications.map(
                         (
                           clarification
@@ -973,7 +1011,7 @@ export default function Home() {
                             }
                             disabled={
                               refiningClarificationId ===
-                              clarification.id
+                              clarification.id || cooldownSeconds > 0
                             }
                             onSelect={(
                               answer
@@ -1010,7 +1048,7 @@ export default function Home() {
                   {analysis.notes && (
                     <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        {analysis.entryMethod === "MANUAL" ? "Entry notes" : "AI notes"}
+                        {foods.some((food) => food.userCorrected) ? "Correction notes" : analysis.entryMethod === "MANUAL" ? "Entry notes" : "AI notes"}
                       </p>
 
                       <p className="mt-1 text-sm leading-6 text-amber-900">
