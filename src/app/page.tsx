@@ -132,6 +132,10 @@ export default function Home() {
     string | null
   >(null);
 
+  // Per-provider countdowns, used only when the server supplies Retry-After.
+  const [cooldownUntil, setCooldownUntil] = useState({ groq: 0, cloudflare: 0 });
+  const [cooldownClock, setCooldownClock] = useState(0);
+
   const [
     selectedAnswers,
     setSelectedAnswers,
@@ -160,6 +164,26 @@ export default function Home() {
     images.length > 0;
   const MAX_IMAGES = getProviderMaxImages(providerId);
   const overProviderLimit = images.length > MAX_IMAGES;
+  const activeCooldownUntil = providerId === "groq" || providerId === "cloudflare"
+    ? cooldownUntil[providerId] : 0;
+  const cooldownSeconds = Math.max(0, Math.ceil((activeCooldownUntil - cooldownClock) / 1000));
+
+  useEffect(() => {
+    if (activeCooldownUntil === 0 || cooldownSeconds === 0) return;
+    const timer = window.setInterval(() => setCooldownClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeCooldownUntil, cooldownSeconds]);
+
+  function captureKnownCooldown(error: unknown) {
+    const provider = providerId;
+    if (provider !== "groq" && provider !== "cloudflare") return;
+    if (!(error instanceof AiHttpError) || error.code !== "AI_PROVIDER_LIMITED") return;
+    const seconds = error.retryAfterSeconds;
+    if (!seconds) return;
+    const until = Date.now() + seconds * 1000;
+    setCooldownUntil(current => ({ ...current, [provider]: Math.max(current[provider], until) }));
+    setCooldownClock(Date.now());
+  }
 
   useEffect(() => {
     if (
@@ -238,7 +262,8 @@ export default function Home() {
       !hasImages ||
       isAnalyzing ||
       MAX_IMAGES === 0 ||
-      overProviderLimit
+      overProviderLimit ||
+      cooldownSeconds > 0
     ) {
       return;
     }
@@ -264,6 +289,7 @@ export default function Home() {
       if (!(error instanceof AiHttpError)) {
         console.error("Unexpected food analysis error:", error);
       }
+      captureKnownCooldown(error);
 
       setError(
         error instanceof Error
@@ -331,6 +357,9 @@ export default function Home() {
       return;
     }
 
+    // Local "I don't know" skips above still work without an API request.
+    if (cooldownSeconds > 0) return;
+
     setSelectedAnswers(
       (current) => ({
         ...current,
@@ -380,6 +409,7 @@ export default function Home() {
       if (!(error instanceof AiHttpError)) {
         console.error("Unexpected food refinement error:", error);
       }
+      captureKnownCooldown(error);
 
       setSelectedAnswers(
         (current) => {
@@ -668,7 +698,8 @@ export default function Home() {
                 !hasImages ||
                 isAnalyzing ||
                 MAX_IMAGES === 0 ||
-                overProviderLimit
+                overProviderLimit ||
+                cooldownSeconds > 0
               }
               className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
@@ -676,6 +707,11 @@ export default function Home() {
                 ? "✨ Analyzing..."
                 : "✨ Analyze Food"}
             </button>
+            {cooldownSeconds > 0 && (
+              <p role="status" className="mt-2 text-sm text-amber-700">
+                {providerId === "groq" ? "Groq" : "Cloudflare"} is cooling down. Try again in {cooldownSeconds} seconds.
+              </p>
+            )}
           </section>
 
           ) : (
@@ -946,6 +982,11 @@ export default function Home() {
                         </p>
                       </div>
 
+                      {cooldownSeconds > 0 && (
+                        <p role="status" className="text-sm font-medium text-amber-700">
+                          {providerId === "groq" ? "Groq" : "Cloudflare"} is cooling down. Clarification updates are available in {cooldownSeconds} seconds.
+                        </p>
+                      )}
                       {clarifications.map(
                         (
                           clarification
@@ -966,7 +1007,7 @@ export default function Home() {
                             }
                             disabled={
                               refiningClarificationId ===
-                              clarification.id
+                              clarification.id || cooldownSeconds > 0
                             }
                             onSelect={(
                               answer

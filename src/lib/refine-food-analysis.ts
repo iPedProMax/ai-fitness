@@ -26,7 +26,7 @@ export async function refineFoodAnalysis(
   const data = await response.json();
 
   if (!response.ok) {
-    throw foodApiError(data, "Failed to refine food analysis.");
+    throw foodApiError(data, "Failed to refine food analysis.", response.headers.get("Retry-After"));
   }
 
   return foodAnalysisSchema.parse(data);

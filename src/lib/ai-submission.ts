@@ -3,13 +3,25 @@
 import type { AiModelId } from "./ai/model-catalog";
 export type AiSubmissionOptions = { idempotencyKey?: string; modelId?: AiModelId };
 export class AiHttpError extends Error {
-  constructor(message: string, readonly code?: string) {
+  constructor(message: string, readonly code?: string, readonly retryAfterSeconds?: number) {
     super(message);
     this.name = "AiHttpError";
   }
 }
-export function foodApiError(payload: { error?: string; code?: string }, fallback: string) {
-  return new AiHttpError(payload.error || fallback, payload.code);
+/** Only a server-provided HTTP Retry-After authorizes an exact cooldown. */
+export function parseRetryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const raw = header.trim();
+  const seconds = /^\d+$/.test(raw)
+    ? Number(raw)
+    : Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 86400
+    ? seconds : undefined;
+}
+
+export function foodApiError(payload: { error?: string; code?: string }, fallback: string, retryAfter: string | null = null) {
+  const wait = payload.code === "AI_PROVIDER_LIMITED" ? parseRetryAfter(retryAfter) : undefined;
+  return new AiHttpError(payload.error || fallback, payload.code, wait);
 }
 export async function submitAiRequest(url: string, init: RequestInit, options: AiSubmissionOptions = {}) {
   const key = options.idempotencyKey ?? crypto.randomUUID();
