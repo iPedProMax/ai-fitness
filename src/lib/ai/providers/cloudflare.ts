@@ -10,7 +10,7 @@ import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "../typ
 // retain the current text endpoint until their own end-to-end validation.
 export const CLOUDFLARE_MODEL = "@cf/moondream/moondream3.1-9B-A2B";
 export const CLOUDFLARE_TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
-const MOONDREAM_QUERY = `Inspect this ONE food-related photo. Reply ONLY with a valid JSON object, no Markdown. Output exactly this shape: {"foods":[{"name":"food name","estimatedGrams":200,"calories":300,"protein":10,"carbs":45,"fat":8,"confidence":0.6}],"totalCalories":300,"notes":"short assumptions","clarifications":[]}. Values must be realistic estimates, not exact claims. Confidence is 0 to 1 and never above 0.8 for a visual guess. If this is packaging or nutrition facts, prefer readable label figures scaled by servings. A scale with a container is NOT confirmed tared: do not mark container weight as food-only measured weight. Don't double-count packaging and its food; don't invent invisible ingredients. For mixed foods, split only clearly distinct portions. If the picture cannot provide reasonable evidence, return {"foods":[],"totalCalories":0,"notes":"Insufficient evidence","clarifications":[]}.`;
+const MOONDREAM_QUERY = `Identify the ONE pictured food or drink from its actual shape/texture BEFORE estimating nutrition. Flat irregular rolled-oat flakes differ from smooth intact rice grains; beige colour alone is not evidence of rice. Distinguish dry from cooked foods. If uncertain, name it Unidentified dry grains or flakes, lower confidence, and ask if it is oats, rice or something else. Return ONLY a JSON object with keys foods (exactly ONE food), totalCalories, notes and clarifications. The one food MUST have: name (text), estimatedGrams, calories, protein, carbs, fat (nonnegative numbers), and confidence (0 to 1). Calculate nutrition for the actual identified item; NEVER copy template numbers or default values. If a digital scale has clearly readable grams, include scaleReadingGrams on the food. Do not guess unclear digits or assume a bowl or wrap was tared. Weight remains an AI estimate until tare is confirmed. If food identity or portion is uncertain, explain briefly and ask one relevant clarification. Prefer a clearly matching readable nutrition label. JSON only.`;
 const MAX_OUTPUT_TOKENS = 2_048;
 const MAX_TEXT_BYTES = 65_536;
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
@@ -109,6 +109,13 @@ function normalizeMoondreamAnswer(answer: string): string {
       // Never treat a visually displayed scale weight as tared food-only weight.
       weightSource: "AI_ESTIMATE" as const,
       nutritionSource: "AI_ESTIMATE" as const,
+      // Only keep a weight if the vision response explicitly contains one.
+      ...(typeof pick("scaleReadingGrams", "scale_reading_grams") === "number" &&
+        Number.isFinite(pick("scaleReadingGrams", "scale_reading_grams") as number) &&
+        (pick("scaleReadingGrams", "scale_reading_grams") as number) > 0 &&
+        (pick("scaleReadingGrams", "scale_reading_grams") as number) <= 10000
+        ? { scaleReadingGrams: pick("scaleReadingGrams", "scale_reading_grams") as number }
+        : {}),
     };
   });
   const parsed = foodAnalysisSchema.safeParse({

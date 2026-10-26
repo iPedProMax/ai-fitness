@@ -106,7 +106,10 @@ describe("scale clarification normalization", () => {
     );
 
     expect(route).toContain(
-      "normalizeScaleClarifications(providerNormalized)"
+      "normalizeScaleClarifications("
+    );
+    expect(route).toContain(
+      "ensureFreeProviderScaleClarifications(providerNormalized)"
     );
   });
 });
