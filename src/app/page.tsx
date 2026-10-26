@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { AddMealButton } from "@/components/add-meal-button";
+import { FoodCorrectionPanel } from "@/components/food-correction-panel";
 import { LogFoodPanel } from "@/components/log-food-panel";
 import { AiProviderPicker } from "@/components/ai-provider-picker";
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
@@ -829,6 +830,7 @@ export default function Home() {
                               <p className="font-semibold">
                                 {(analysis.entryMethod === "MANUAL" || analysis.entryMethod === "TEXT_AI") && <span aria-hidden="true" className="mr-2">{foodEmoji(food.name)}</span>}
                                 {food.name}
+                                {food.userCorrected && <span className="ml-2 text-xs font-medium text-emerald-700">User corrected</span>}
                               </p>
 
                               <p className="mt-1 text-sm text-slate-500">
@@ -905,6 +907,8 @@ export default function Home() {
                       )
                     )}
                   </div>
+
+                  <FoodCorrectionPanel analysis={analysis} onApply={setAnalysis} />
 
                   <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-white">
                     <p className="text-xs text-slate-400">
@@ -1044,7 +1048,7 @@ export default function Home() {
                   {analysis.notes && (
                     <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                        {analysis.entryMethod === "MANUAL" ? "Entry notes" : "AI notes"}
+                        {foods.some((food) => food.userCorrected) ? "Correction notes" : analysis.entryMethod === "MANUAL" ? "Entry notes" : "AI notes"}
                       </p>
 
                       <p className="mt-1 text-sm leading-6 text-amber-900">

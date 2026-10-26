@@ -59,6 +59,9 @@ export const foodItemSchema =
     confidence:
       z.number().min(0).max(1),
 
+    // Explicit local user correction, recorded in the meal analysis snapshot.
+    userCorrected: z.boolean().optional(),
+
     // For manual logs only; omitted for fully known AI and photo values.
     // Database numeric zeros for these fields are placeholders, not known 0g.
     unknownMacros: z.array(z.enum(["protein", "carbs", "fat"])).optional(),
