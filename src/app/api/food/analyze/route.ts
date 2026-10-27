@@ -16,7 +16,8 @@ import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import { normalizeFoodDescription, formatFoodDescriptionContext } from "@/lib/ai/food-description";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
-import { hasSevereCalorieMacroMismatch } from "@/lib/ai/nutrition-consistency";
+import { applyDescriptionClarificationAnswers } from "@/lib/ai/description-clarification";
+import { hasSevereCalorieMacroMismatch, hasUnusablePhotoNutrition } from "@/lib/ai/nutrition-consistency";
 import { ensureFreeProviderScaleClarifications } from "@/lib/ai/free-provider-scale";
 import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
 import {
@@ -627,6 +628,20 @@ Associate it with other images only when the connection is reasonably supported.
       ? normalizeSingleFoodProvider(parsedResult)
       : parsedResult;
 
+    // A visible food cannot have a credible 0 g serving or 0% model confidence.
+    // Reject these even when calories are too small for the macro mismatch gate.
+    // Valid low-calorie or zero-calorie foods with positive weight stay allowed.
+    if ((provider.id === "groq" || provider.id === "cloudflare") &&
+        providerNormalized.foods.some(hasUnusablePhotoNutrition)) {
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({
+        provider: provider.id, category: "UNUSABLE_PORTION_OR_CONFIDENCE",
+      }));
+      return NextResponse.json({
+        error: "This AI could not estimate a usable food portion. Please verify the food and quantity, or choose another AI provider. No meal was added.",
+        code: "AI_NUTRITION_UNUSABLE",
+      }, { status: 502 });
+    }
+
     // Do not display obviously self-contradictory AI nutrition as a trusted scan.
     // Never invent macros or silently recalculate calories to fix the model.
     if ((provider.id === "groq" || provider.id === "cloudflare") &&
@@ -667,11 +682,10 @@ Associate it with other images only when the connection is reasonably supported.
         withBrandClarifications
       );
 
-    return NextResponse.json(
-      provider.id === "gemini"
-        ? result
-        : pruneFreeProviderClarifications(result)
-    );
+    const resolved = provider.id === "gemini"
+      ? result
+      : pruneFreeProviderClarifications(result);
+    return NextResponse.json(applyDescriptionClarificationAnswers(resolved, description));
   } catch (error) {
     const routingError = aiRoutingErrorResponse(error);
     if (routingError) return routingError;

@@ -151,4 +151,36 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(data.foods[0].weightSource).toBe("AI_ESTIMATE");
     expect(data.clarifications).toEqual(expect.arrayContaining([expect.objectContaining({ id: "tare_status_0" })]));
   });
+  it.each(["groq", "cloudflare"])("blocks the near-zero oats result from %s", async id => {
+    const provider = mockProvider(id);
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Quaker Oats Instant Oats", estimatedGrams: 0,
+      calories: 7, protein: 0, carbs: 0, fat: 0, confidence: 0,
+    }], totalCalories: 7 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["oats"], "oats.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "AI_NUTRITION_UNUSABLE" });
+    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
+    expect(provider.generate).toHaveBeenCalledOnce();
+  });
+
+  it("still accepts truly zero-calorie water from a photo provider", async () => {
+    const provider = mockProvider("cloudflare");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Water", estimatedGrams: 250,
+      calories: 0, protein: 0, carbs: 0, fat: 0, confidence: 0.8,
+    }], totalCalories: 0 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", "cloudflare");
+    body.append("images", new File(["water"], "water.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).foods[0].calories).toBe(0);
+  });
+
 });

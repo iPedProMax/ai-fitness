@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasMaterialCalorieMacroMismatch, hasSevereCalorieMacroMismatch } from "./nutrition-consistency";
+import { hasMaterialCalorieMacroMismatch, hasSevereCalorieMacroMismatch, hasUnusablePhotoNutrition } from "./nutrition-consistency";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 
 type FoodItem = FoodAnalysis["foods"][number];
@@ -50,5 +50,25 @@ describe("severe AI photo nutrition mismatch", () => {
       carbs: 0, fat: 0, unknownMacros: ["carbs"] })).toBe(false);
     expect(hasSevereCalorieMacroMismatch({ ...base, calories: 100, protein: 110,
       carbs: 0, fat: 0 })).toBe(true);
+  });
+});
+
+
+describe("unusable image portion checks", () => {
+  it("rejects 7-kcal oats with a zero-gram portion and zero confidence", () => {
+    expect(hasUnusablePhotoNutrition({ ...base, name: "Quaker Oats Instant Oats",
+      estimatedGrams: 0, calories: 7, protein: 0, carbs: 0, fat: 0, confidence: 0 })).toBe(true);
+  });
+  it("rejects rounded-to-zero serving weight independently of confidence", () => {
+    expect(hasUnusablePhotoNutrition({ ...base, estimatedGrams: 0.2 })).toBe(true);
+  });
+  it("rejects zero confidence independently of serving size", () => {
+    expect(hasUnusablePhotoNutrition({ ...base, confidence: 0 })).toBe(true);
+  });
+  it("allows legitimate low-calorie drinks and zero-calorie water", () => {
+    expect(hasUnusablePhotoNutrition({ ...base, name: "Water", estimatedGrams: 250,
+      calories: 0, protein: 0, carbs: 0, fat: 0, confidence: 0.6 })).toBe(false);
+    expect(hasUnusablePhotoNutrition({ ...base, name: "Plain tea", estimatedGrams: 240,
+      calories: 2, protein: 0, carbs: 0, fat: 0, confidence: 0.6 })).toBe(false);
   });
 });

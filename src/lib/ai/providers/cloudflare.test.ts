@@ -158,4 +158,36 @@ describe("disabled Cloudflare Workers AI adapter (mock HTTPS only)", () => {
     expect(await generateWithFallback([primary, backup], request)).toMatchObject({ outputText: expect.any(String) });
     expect(primary.generate).toHaveBeenCalledOnce(); expect(transport).toHaveBeenCalledOnce();
   });
+  it("asks Moondream for one flat nutrition object rather than nested prose", async () => {
+    transport.mockResolvedValue(reply());
+    await createCloudflareProvider(credentials, true).generate(request);
+    const payload = JSON.parse(transport.mock.calls[0][1]!.body as string);
+    expect(payload.question).toContain("ONE compact JSON object");
+    expect(payload.question).toContain("estimatedGrams");
+    expect(payload.question).toContain("protein");
+    expect(payload.question).toContain("carbs");
+    expect(payload.question).toContain("fat");
+    expect(payload.question).toContain("scaleReadingGrams");
+    expect(payload).not.toHaveProperty("response_format");
+    expect(transport).toHaveBeenCalledOnce();
+  });
+  it.each(["intro", "fenced"])("accepts complete flat JSON within %s output", async wrapper => {
+    const flat = JSON.stringify({
+      name: "Rolled oats", estimatedGrams: 70.6, calories: 270,
+      protein: 9, carbs: 46, fat: 5, confidence: 0.65,
+    });
+    transport.mockResolvedValue(reply(wrapper === "intro"
+      ? "The food appears to be oats: " + flat + " End of response."
+      : "```json\n" + flat + "\n```"));
+    const result = await createCloudflareProvider(credentials, true).generate(request);
+    const parsed = foodAnalysisSchema.parse(JSON.parse(result.outputText!));
+    expect(parsed.foods).toHaveLength(1);
+    expect(parsed.foods[0]).toMatchObject({ name: "Rolled oats", calories: 270, protein: 9, carbs: 46, fat: 5 });
+  });
+  it("does not invent missing nutrients from wrapped JSON", async () => {
+    transport.mockResolvedValue(reply('Food identified: {"name":"Oats","calories":270}'));
+    await expect(createCloudflareProvider(credentials, true).generate(request))
+      .rejects.toThrow("Incomplete Moondream nutrition");
+  });
+
 });

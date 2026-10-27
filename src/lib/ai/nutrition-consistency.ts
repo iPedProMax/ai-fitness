@@ -14,6 +14,15 @@ export function hasMaterialCalorieMacroMismatch(food: FoodItem): boolean {
   return discrepancy > Math.max(15, food.calories * 0.25);
 }
 
+/** Reject plainly unusable photo portions from lightweight AI providers.
+ * A 0 g portion or 0% confidence is not a usable food estimate. This is not a
+ * rule against low-calorie meals or drinks: water with a real positive portion
+ * remains valid, and small calorie counts alone never trigger rejection. */
+export function hasUnusablePhotoNutrition(food: FoodItem): boolean {
+  return !Number.isFinite(food.estimatedGrams) || food.estimatedGrams < 0.5 ||
+    !Number.isFinite(food.confidence) || food.confidence <= 0;
+}
+
 /** Block only EXTREME contradictions from lightweight photo providers.
  * 4/4/9 is an approximation, not a universal calorie formula: alcohol, fibre,
  * rounding and label differences can legitimately shift the total.

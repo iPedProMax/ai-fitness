@@ -11,7 +11,7 @@ import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "../typ
 // retain the current text endpoint until their own end-to-end validation.
 export const CLOUDFLARE_MODEL = "@cf/moondream/moondream3.1-9B-A2B";
 export const CLOUDFLARE_TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
-const MOONDREAM_QUERY = `Identify the ONE pictured food or drink from its actual shape/texture BEFORE estimating nutrition. Flat irregular rolled-oat flakes differ from smooth intact rice grains; beige colour alone is not evidence of rice. Distinguish dry from cooked foods. If uncertain, name it Unidentified dry grains or flakes, lower confidence, and ask if it is oats, rice or something else. Return ONLY a JSON object with keys foods (exactly ONE food), totalCalories, notes and clarifications. The one food MUST have: name (text), estimatedGrams, calories, protein, carbs, fat (nonnegative numbers), and confidence (0 to 1). Calculate nutrition for the actual identified item; NEVER copy template numbers or default values. If a digital scale has clearly readable grams, include scaleReadingGrams on the food. Do not guess unclear digits or assume a bowl or wrap was tared. Weight remains an AI estimate until tare is confirmed. If food identity or portion is uncertain, explain briefly and ask one relevant clarification. Prefer a clearly matching readable nutrition label. JSON only.`;
+const MOONDREAM_QUERY = `Identify the ONE pictured food or drink from its actual shape and texture. Flat irregular rolled-oat flakes differ from smooth intact rice grains; beige colour alone does not prove rice. Distinguish dry from cooked food. Return ONLY ONE compact JSON object, not a foods array or extra prose. Required exact fields: name (text), estimatedGrams (number), calories (number), protein (number), carbs (number), fat (number), confidence (number from 0 to 1). All nutrition numbers must refer to the SAME portion; amounts cannot be negative. Optional fields: scaleReadingGrams (positive number only if clearly readable), notes (short text). Base estimates on actual food and portion, not template numbers. Do not invent scale digits, ingredients, brands, or tare status; a scale reading is not measured food-only weight until the user confirms tare. When visual identity is ambiguous, provide a cautious food name with reduced confidence and a brief note. If any required nutrition number cannot be responsibly estimated, do not fabricate it. JSON only.`;
 const MAX_OUTPUT_TOKENS = 2_048;
 const MAX_TEXT_BYTES = 65_536;
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
@@ -77,8 +77,13 @@ function prepareBody(request: AiGenerationRequest): { body: string; model: strin
 function normalizeMoondreamAnswer(answer: string): string {
   let raw: unknown;
   try {
+    // Accept intact JSON even when Moondream adds introductory or trailing prose.
+    // Never infer nutrition numbers from prose or replace missing nutrition fields.
     const cleaned = answer.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-    raw = JSON.parse(cleaned);
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new Error("No JSON object");
+    raw = JSON.parse(cleaned.slice(start, end + 1));
   } catch { throw new CloudflareProviderError("Moondream returned invalid nutrition JSON."); }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new CloudflareProviderError("Moondream returned invalid nutrition data.");
   const object = raw as Record<string, unknown>;
