@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./aura-soft-ui.css";
 
 :root {
   --background: #ffffff;

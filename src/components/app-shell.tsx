@@ -135,7 +135,7 @@ function Navigation({
             aria-current={active ? "page" : undefined}
             className={`${base} ${
               active
-                ? "bg-emerald-50 font-semibold text-emerald-700"
+                ? "bg-emerald-50 font-semibold text-emerald-700 aura-nav-active"
                 : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             }`}
           >
@@ -154,7 +154,7 @@ function Brand() {
       href="/dashboard"
       className="flex items-center gap-3"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm aura-brand">
         AF
       </span>
 
@@ -210,8 +210,8 @@ export function AppShell({
             : "Log Food";
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
+    <div className="min-h-screen w-full bg-slate-50 text-slate-900 aura-app">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex aura-sidebar">
         <div className="px-2">
           <Brand />
         </div>
@@ -236,7 +236,7 @@ export function AppShell({
       </aside>
 
       <div className="min-w-0 lg:pl-64">
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur aura-header">
           <div className="flex h-[76px] items-center gap-3 px-4 sm:px-6">
             <button
               type="button"
