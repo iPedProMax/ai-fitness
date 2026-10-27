@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+// Legacy Moondream tests must not inherit a local Scout experiment setting.
+import { beforeEach as isolateCloudflareModel } from "vitest";
+isolateCloudflareModel(() => { vi.stubEnv("AI_CLOUDFLARE_VISION_MODEL", "moondream"); });
 import { createCloudflareProvider } from "./providers/cloudflare";
 import { formatFoodDescriptionContext } from "./food-description";
 import { foodAnalysisJsonSchema } from "@/lib/food-analysis";

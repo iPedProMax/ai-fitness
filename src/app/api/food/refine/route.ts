@@ -3,6 +3,7 @@ import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { selectRequestedAiModel } from "@/lib/ai/selected-model";
 import { aiRoutingErrorResponse } from "@/lib/ai/errors";
+import { resolveLocalClarification } from "@/lib/local-clarification-resolver";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -434,6 +435,10 @@ async function handlePost(
       });
     }
 
+    // Deterministic metadata/unknown answers never require a provider call.
+    // This must remain AFTER auth + option validation but BEFORE AI reservation.
+    const localResult = resolveLocalClarification(analysis, clarificationId, answer);
+    if (localResult) return NextResponse.json(localResult);
     /*
      * ADDITIVE REFINEMENT
      *
