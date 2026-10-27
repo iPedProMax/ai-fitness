@@ -30,6 +30,7 @@ import {
 import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
+import { resolveLocalClarification } from "@/lib/local-clarification-resolver";
 
 
 type ImageThumbnailProps = {
@@ -360,8 +361,8 @@ export default function Home() {
       return;
     }
 
-    // Local "I don't know" skips above still work without an API request.
-    if (cooldownSeconds > 0) return;
+    // AI-dependent updates must wait, but safe local answers remain available.
+    if (cooldownSeconds > 0 && !resolveLocalClarification(analysis, clarificationId, answer)) return;
 
     setSelectedAnswers(
       (current) => ({
@@ -1036,8 +1037,9 @@ export default function Home() {
                             }
                             disabled={
                               refiningClarificationId ===
-                              clarification.id || cooldownSeconds > 0
+                              clarification.id
                             }
+                            isAnswerDisabled={(answer) => cooldownSeconds > 0 && !resolveLocalClarification(analysis, clarification.id, answer)}
                             onSelect={(
                               answer
                             ) =>

@@ -20,6 +20,7 @@ type ClarificationCardProps = {
     string | null;
 
   disabled: boolean;
+  isAnswerDisabled?: (answer: string) => boolean;
 
   onSelect: (
     answer: string
@@ -30,6 +31,7 @@ export function ClarificationCard({
   clarification,
   selectedAnswer,
   disabled,
+  isAnswerDisabled,
   onSelect,
 }: ClarificationCardProps) {
   const [
@@ -50,6 +52,7 @@ export function ClarificationCard({
   function submitCustomAnswer() {
     if (
       disabled ||
+      isAnswerDisabled?.(trimmedCustomAnswer) ||
       trimmedCustomAnswer.length ===
         0
     ) {
@@ -90,9 +93,8 @@ export function ClarificationCard({
               <button
                 key={option}
                 type="button"
-                disabled={
-                  disabled
-                }
+                disabled={disabled || isAnswerDisabled?.(option)}
+                title={isAnswerDisabled?.(option) ? "Requires AI; please wait for provider cooldown." : undefined}
                 onClick={() => {
                   setShowCustomInput(
                     false
@@ -179,6 +181,7 @@ export function ClarificationCard({
                 type="button"
                 disabled={
                   disabled ||
+                  isAnswerDisabled?.(trimmedCustomAnswer) ||
                   trimmedCustomAnswer.length ===
                     0
                 }
