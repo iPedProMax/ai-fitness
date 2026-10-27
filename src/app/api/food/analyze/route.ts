@@ -16,6 +16,7 @@ import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import { normalizeFoodDescription, formatFoodDescriptionContext } from "@/lib/ai/food-description";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
+import { hasSevereCalorieMacroMismatch } from "@/lib/ai/nutrition-consistency";
 import { ensureFreeProviderScaleClarifications } from "@/lib/ai/free-provider-scale";
 import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
 import {
@@ -625,6 +626,20 @@ Associate it with other images only when the connection is reasonably supported.
     const providerNormalized = (provider.id === "groq" || provider.id === "cloudflare")
       ? normalizeSingleFoodProvider(parsedResult)
       : parsedResult;
+
+    // Do not display obviously self-contradictory AI nutrition as a trusted scan.
+    // Never invent macros or silently recalculate calories to fix the model.
+    if ((provider.id === "groq" || provider.id === "cloudflare") &&
+        providerNormalized.foods.some(hasSevereCalorieMacroMismatch)) {
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({
+        provider: provider.id, category: "SEVERE_MACRO_MISMATCH",
+      }));
+      return NextResponse.json({
+        error: "This AI gave conflicting calorie and macronutrient estimates. Try describing the food, choose another provider, or use Manual / Text.",
+        code: "AI_NUTRITION_INCONSISTENT",
+      }, { status: 502 });
+    }
+
     const withScaleClarifications =
       normalizeScaleClarifications(
         provider.id === "groq" || provider.id === "cloudflare"

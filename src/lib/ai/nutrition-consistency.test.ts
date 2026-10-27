@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasMaterialCalorieMacroMismatch } from "./nutrition-consistency";
+import { hasMaterialCalorieMacroMismatch, hasSevereCalorieMacroMismatch } from "./nutrition-consistency";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 
 type FoodItem = FoodAnalysis["foods"][number];
@@ -27,5 +27,28 @@ describe("non-blocking nutrition consistency notice", () => {
     expect(page).toContain('providerId === "groq" || providerId === "cloudflare"');
     expect(page).toContain("foods.some(hasMaterialCalorieMacroMismatch)");
     expect(page).toContain("The previous estimate is still shown.");
+  });
+});
+
+
+describe("severe AI photo nutrition mismatch", () => {
+  it("rejects the real 377 kcal versus 7P/4C/1F oats result", () => {
+    expect(hasSevereCalorieMacroMismatch({ ...base, name: "Rolled oats", calories: 377,
+      protein: 7, carbs: 4, fat: 1 })).toBe(true);
+  });
+  it("keeps ordinary rounding and moderate differences as nonblocking warnings", () => {
+    expect(hasSevereCalorieMacroMismatch(base)).toBe(false);
+    expect(hasSevereCalorieMacroMismatch({ ...base, calories: 250, protein: 10, carbs: 45, fat: 8 })).toBe(false);
+    expect(hasSevereCalorieMacroMismatch({ ...base, calories: 50, protein: 0, carbs: 5, fat: 0 })).toBe(false);
+  });
+  it("does not misjudge alcoholic drinks where alcohol supplies calories", () => {
+    expect(hasSevereCalorieMacroMismatch({ ...base, name: "Wine", calories: 150,
+      protein: 0, carbs: 5, fat: 0 })).toBe(false);
+  });
+  it("skips unknown macro fields and catches reverse contradictions", () => {
+    expect(hasSevereCalorieMacroMismatch({ ...base, calories: 377, protein: 0,
+      carbs: 0, fat: 0, unknownMacros: ["carbs"] })).toBe(false);
+    expect(hasSevereCalorieMacroMismatch({ ...base, calories: 100, protein: 110,
+      carbs: 0, fat: 0 })).toBe(true);
   });
 });

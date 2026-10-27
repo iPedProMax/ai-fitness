@@ -108,4 +108,47 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(reserve).not.toHaveBeenCalled();
     expect(getProvider).not.toHaveBeenCalled();
   });
+
+  it.each(["groq", "cloudflare"])("rejects extreme %s macro contradiction rather than saving it", async id => {
+    const provider = mockProvider(id);
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Rolled oats", calories: 377, protein: 7, carbs: 4, fat: 1,
+    }], totalCalories: 377 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["oats"], "oats.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "AI_NUTRITION_INCONSISTENT" });
+    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
+    expect(provider.generate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Gemini's previous handling untouched", async () => {
+    const provider = mockProvider("gemini");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Rolled oats", calories: 377, protein: 7, carbs: 4, fat: 1,
+    }], totalCalories: 377 }) });
+    getProvider.mockReturnValue(provider);
+    const response = await photo(photoRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).foods[0].calories).toBe(377);
+  });
+
+  it("downgrades an unconfirmed Groq scale and asks for tare", async () => {
+    const provider = mockProvider("groq");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], scaleReadingGrams: 105, weightSource: "SCALE_MEASURED",
+    }] }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", "groq");
+    body.append("images", new File(["rice"], "rice.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(data.clarifications).toEqual(expect.arrayContaining([expect.objectContaining({ id: "tare_status_0" })]));
+  });
 });

@@ -31,6 +31,20 @@ describe("free vision evidence handling", () => {
     expect(ensureFreeProviderScaleClarifications(first)).toEqual(first);
     expect(ensureFreeProviderScaleClarifications(oats).foods).toEqual(oats.foods);
   });
+  it("does not trust Groq's unconfirmed SCALE_MEASURED claim", () => {
+    const claimed = { ...oats, foods: [{ ...oats.foods[0], weightSource: "SCALE_MEASURED" as const }] };
+    const result = ensureFreeProviderScaleClarifications(claimed);
+    expect(result.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(result.clarifications).toHaveLength(1);
+    expect(result.clarifications[0].id).toBe("tare_status_0");
+    expect(ensureFreeProviderScaleClarifications(result)).toEqual(result);
+  });
+  it("removes unsupported measured claims even without readable scale grams", () => {
+    const claimed = { ...oats, foods: [{ ...oats.foods[0], scaleReadingGrams: undefined, weightSource: "SCALE_MEASURED" as const }] };
+    const result = ensureFreeProviderScaleClarifications(claimed);
+    expect(result.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(result.clarifications).toHaveLength(0);
+  });
   it("makes free-provider prompts distinguish oats from rice without template nutrition values", async () => {
     expect(groqPhotoPrompt).toMatch(/rolled oats/i);
     expect(groqPhotoPrompt).toMatch(/rice/i);
