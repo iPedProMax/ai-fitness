@@ -14,6 +14,7 @@ import {
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
+import { normalizeFoodDescription, formatFoodDescriptionContext } from "@/lib/ai/food-description";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
 import { ensureFreeProviderScaleClarifications } from "@/lib/ai/free-provider-scale";
 import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
@@ -399,6 +400,11 @@ async function handlePost(
       }
     }
 
+    const description = normalizeFoodDescription(formData.get("description"));
+    if (description === null) {
+      return NextResponse.json({ error: "Food description must be text and at most 400 characters." }, { status: 400 });
+    }
+
     const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
@@ -559,6 +565,11 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
 `,
         },
       ];
+
+    // One optional, unverified user hint is sent in the SAME request to the selected AI.
+    // Cloudflare extracts this tagged part into its Moondream vision question.
+    const descriptionContext = formatFoodDescriptionContext(description);
+    if (descriptionContext) input.push({ type: "text", text: descriptionContext });
 
     for (
       let index = 0;

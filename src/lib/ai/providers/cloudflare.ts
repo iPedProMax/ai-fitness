@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { AiRoutingError } from "../errors";
 import { foodAnalysisSchema } from "@/lib/food-analysis";
+import { FOOD_DESCRIPTION_PREFIX } from "../food-description";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "../types";
 
 // Verified against Cloudflare's official model catalog/schema on 2026-10-16.
@@ -50,8 +51,13 @@ function prepareBody(request: AiGenerationRequest): { body: string; model: strin
   if (vision) {
     const image = content.find(item => item.type === "image_url");
     if (!image || !image.image_url) throw new CloudflareProviderError("Missing food photo.");
+    // The photo API ignores ordinary messages. Explicitly attach only the tagged
+    // optional description to Moondream's single image-query question.
+    const context = text.flatMap(part => part.type === "text" &&
+      part.text.startsWith(FOOD_DESCRIPTION_PREFIX) ? [part.text] : [])[0];
+    const question = context ? MOONDREAM_QUERY + "\n" + context : MOONDREAM_QUERY;
     const body = JSON.stringify({ task: "query", image: image.image_url.url,
-      question: MOONDREAM_QUERY, reasoning: false, stream: false, max_tokens: 900 });
+      question, reasoning: false, stream: false, max_tokens: 900 });
     if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) throw new AiRoutingError("INPUT_TOO_LARGE");
     return { body, model: CLOUDFLARE_MODEL, vision: true };
   }

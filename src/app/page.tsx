@@ -90,6 +90,7 @@ function ImageThumbnail({
 export default function Home() {
   const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
   const [providerId, setProviderId] = useState<AiProviderChoice>("gemini");
+  const [photoDescription, setPhotoDescription] = useState("");
   const [
     images,
     setImages,
@@ -282,6 +283,7 @@ export default function Home() {
       const result =
         await analyzeFood({
           images,
+          description: photoDescription,
         }, { modelId: providerId });
 
       setAnalysis(result);
@@ -676,6 +678,29 @@ export default function Home() {
 
                 📷 Camera
               </label>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="photo-food-description" className="block text-sm font-medium text-slate-800">
+                Describe your food <span className="font-normal text-slate-500">(optional)</span>
+              </label>
+              <textarea
+                id="photo-food-description"
+                value={photoDescription}
+                maxLength={400}
+                rows={3}
+                disabled={isAnalyzing}
+                onChange={(event) => {
+                  setPhotoDescription(event.target.value);
+                  resetAnalysis();
+                }}
+                placeholder="e.g. 70.6 g dry Quaker Quick Cook Oats, no milk or sugar added"
+                className="mt-2 block w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Food name, brand, ingredients, preparation or portion (max 400 characters).
+                The AI compares your description with the photo and may still ask for clarification.
+              </p>
             </div>
 
             {overProviderLimit && (
