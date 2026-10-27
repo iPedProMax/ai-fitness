@@ -4,6 +4,8 @@ import {
   useState,
 } from "react";
 
+import { getClarificationAnswerCopy } from "@/lib/clarification-answer-copy";
+
 import type {
   FoodAnalysis,
 } from "@/lib/food-analysis";
@@ -39,6 +41,8 @@ export function ClarificationCard({
     customAnswer,
     setCustomAnswer,
   ] = useState("");
+
+  const answerCopy = getClarificationAnswerCopy(clarification);
 
   const trimmedCustomAnswer =
     customAnswer.trim();
@@ -147,7 +151,7 @@ export function ClarificationCard({
                   disabled
                 }
                 autoFocus
-                placeholder="e.g. 2 spoons, 10g, half tbsp"
+                placeholder={answerCopy.placeholder}
                 onChange={(
                   event
                 ) =>
@@ -188,11 +192,7 @@ export function ClarificationCard({
             </div>
 
             <p className="mt-2 text-xs leading-5 text-slate-400">
-              You can answer
-              naturally. Examples:
-              2 teaspoons, about
-              10g, half a
-              tablespoon, 100 ml.
+              {answerCopy.helper}
             </p>
           </div>
         )}

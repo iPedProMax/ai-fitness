@@ -3,6 +3,7 @@ import {
   foodAnalysisSchema,
   type FoodAnalysis,
 } from "./food-analysis";
+import { prepareCloudflareImage } from "./ai/image-optimization";
 
 export type FoodAnalysisInput = {
   images: File[];
@@ -35,7 +36,11 @@ export async function analyzeFood(
 
   const formData = new FormData();
 
-  images.forEach((image) => {
+  // Optimise Cloudflare uploads only. Keep the original user-selected photo intact.
+  const uploadImages = options?.modelId === "cloudflare"
+    ? await Promise.all(images.map(prepareCloudflareImage))
+    : images;
+  uploadImages.forEach((image) => {
     formData.append("images", image);
   });
   if (options?.modelId) formData.append("model", options.modelId);

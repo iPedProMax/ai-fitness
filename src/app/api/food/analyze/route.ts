@@ -651,11 +651,26 @@ Associate it with other images only when the connection is reasonably supported.
     if (routingError) return routingError;
     if (selectedProviderId !== "gemini") {
       // Never expose upstream bodies, prompts, image content, or tokens.
+      // Whitelist app-generated error strings; never log upstream responses or photo content.
+      const cloudflareReason = selectedProviderId === "cloudflare" && error instanceof Error
+        ? ({
+            "Moondream returned invalid nutrition JSON.": "INVALID_JSON",
+            "Incomplete Moondream nutrition.": "MISSING_NUTRITION_FIELDS",
+            "Missing food identity.": "MISSING_FOOD_NAME",
+            "Moondream output was truncated.": "TRUNCATED",
+            "Moondream nutrition does not match the food schema.": "INVALID_SCHEMA",
+          } as Record<string, string>)[error.message] ?? "OTHER"
+        : undefined;
       console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({ provider: selectedProviderId,
         category: error instanceof SyntaxError ? "JSON_PARSE" :
-          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER" }));
-      return NextResponse.json({ error: "This provider could not complete a valid nutrition estimate. Try fewer photos or select Gemini.",
-        code: "AI_INVALID_NUTRITION" }, { status: 502 });
+          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER",
+        ...(cloudflareReason ? { reason: cloudflareReason } : {}) }));
+      return NextResponse.json({
+        error: selectedProviderId === "cloudflare"
+          ? "Cloudflare could not produce a complete nutrition estimate for this photo. Try a clearer image or select another provider."
+          : "This provider could not complete a valid nutrition estimate. Try a clearer photo or select another provider.",
+        code: "AI_INVALID_NUTRITION",
+      }, { status: 502 });
     }
     console.error(
       "Gemini food analysis failed."
