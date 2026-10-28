@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { AccountMenu } from "@/components/account-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type IconName =
   | "dashboard"
@@ -273,6 +274,7 @@ export function AppShell({
               </h2>
             </div>
 
+            <ThemeToggle />
             <AccountMenu />
           </div>
 

@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appearanceBoot = `(function(){try{var t=localStorage.getItem("ai-fitness-appearance");var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-aura-theme",d?"dark":"light")}catch(e){document.documentElement.setAttribute("data-aura-theme","light")}})();`;
 export const metadata: Metadata = {
   title: "AI Fitness",
   description: "AI-powered food tracking and nutrition insights.",
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><AppShell>{children}</AppShell></body>
+      <body className="min-h-full flex flex-col"><script dangerouslySetInnerHTML={{ __html: appearanceBoot }} /><AppShell>{children}</AppShell></body>
     </html>
   );
 }

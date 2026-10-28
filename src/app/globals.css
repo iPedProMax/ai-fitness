@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./aura-soft-ui.css";
+@import "./aura-dark-mode.css";
 
 :root {
   --background: #ffffff;
