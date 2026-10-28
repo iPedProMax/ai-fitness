@@ -4,6 +4,7 @@ export const PROVIDER_IMAGE_LIMITS = {
   gemini: 10,
   cloudflare: 1,
   groq: 2,
+  mistral: 1,
 } as const;
 
 export type AiProviderChoice = keyof typeof PROVIDER_IMAGE_LIMITS;

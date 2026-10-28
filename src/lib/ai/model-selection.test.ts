@@ -92,7 +92,7 @@ describe("single Gemini model admission", () => {
   });
 
   it("rejects attempts to choose another model in refinements", async () => {
-    const response = await refine(refineRequest("mistral"));
+    const response = await refine(refineRequest("openrouter"));
     expect(response.status).toBe(400);
     expect(reserve).not.toHaveBeenCalled();
   });
@@ -115,6 +115,14 @@ describe("single Gemini model admission", () => {
     const response = await analyze(imageRequest("groq", 3));
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("allows Mistral one photo but rejects two before accounting", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "mistral", capabilities: { ...defaultProvider.capabilities, maxImages: 1 } });
+    expect(await selectRequestedAiModel("mistral", 1)).toMatchObject({ provider: { id: "mistral" } });
+    expect((await selectRequestedAiModel("mistral", 2)).error?.status).toBe(422);
+    const response = await analyze(imageRequest("mistral", 2));
+    expect(response.status).toBe(422);
     expect(reserve).not.toHaveBeenCalled();
   });
   it("rejects excessive image counts with the normal compatibility error", async () => {

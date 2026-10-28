@@ -6,7 +6,7 @@ export const aiModelCatalog = [
   { id: "cloudflare", name: "Cloudflare Workers AI", maxImages: 1, text: true, vision: true },
   { id: "groq", name: "GroqCloud (Qwen 3.8)", maxImages: 2, text: true, vision: true },
   { id: "openrouter", name: "OpenRouter", maxImages: 0, text: false, vision: false },
-  { id: "mistral", name: "Mistral AI", maxImages: 0, text: false, vision: false },
+  { id: "mistral", name: "Mistral 14B (Experimental)", maxImages: 1, text: true, vision: true },
   { id: "huggingface", name: "Hugging Face", maxImages: 0, text: false, vision: false },
   { id: "cerebras", name: "Cerebras", maxImages: 0, text: false, vision: false },
 ] as const;

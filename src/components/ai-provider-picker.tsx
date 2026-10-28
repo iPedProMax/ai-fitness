@@ -9,6 +9,7 @@ const choices: { id: AiProviderChoice; label: string }[] = [
   { id: "gemini", label: "Google Gemini" },
   { id: "cloudflare", label: "Cloudflare Workers AI" },
   { id: "groq", label: "GroqCloud (Qwen Vision)" },
+  { id: "mistral", label: "Mistral 14B (Experimental)" },
 ];
 
 export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
@@ -41,6 +42,7 @@ export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
       </select>
       <p role="status" className="mt-2 text-xs text-slate-600">
         {!supported ? value === "groq" ? "Groq supports up to two photos per request. Remove extras or choose Gemini."
+          : value === "mistral" ? "Mistral supports one photo. Choose Gemini for multiple photos."
           : "Cloudflare currently supports one photo per request. Choose Gemini for multiple photos."
           : status?.enabled === false ? (status.reason ?? "This provider is unavailable right now.")
           : "Only the selected provider is used. No automatic switching or paid fallback."}

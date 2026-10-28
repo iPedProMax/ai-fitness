@@ -17,12 +17,13 @@ export async function getAiModelStatuses(): Promise<AiModelStatus[]> {
         : policy?.reason ?? "Free-tier model not activated in staging";
       return { ...model, enabled, reason };
     }
-    if (model.id === "cloudflare" || model.id === "groq") {
+    if (model.id === "cloudflare" || model.id === "groq" || model.id === "mistral") {
       const policy = policies.get(model.id);
       const credentialsConfigured = model.id === "cloudflare"
         ? process.env.AI_ENABLE_CLOUDFLARE_FREE === "true" &&
           Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN)
-        : process.env.AI_ENABLE_GROQ_FREE === "true" && Boolean(process.env.GROQ_API_KEY);
+        : model.id === "groq" ? process.env.AI_ENABLE_GROQ_FREE === "true" && Boolean(process.env.GROQ_API_KEY)
+        : process.env.AI_ENABLE_MISTRAL_FREE === "true" && process.env.MISTRAL_FREE_PLAN_CONFIRMED === "true" && Boolean(process.env.MISTRAL_API_KEY);
       const enabled = process.env.AI_ENABLED === "true" && credentialsConfigured && policy?.enabled === true;
       return { ...model, enabled, reason: enabled ? null : !credentialsConfigured
         ? "Provider not configured for verified free use" : policy?.reason ?? "Provider policy not activated" };
