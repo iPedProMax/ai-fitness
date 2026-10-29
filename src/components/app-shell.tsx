@@ -14,6 +14,7 @@ type IconName =
   | "history"
   | "reports"
   | "activities"
+  | "coach"
   | "settings";
 
 type NavItem = {
@@ -54,6 +55,11 @@ const navItems: NavItem[] = [
     icon: "activities",
   },
   {
+    label: "AI Coach",
+    href: "/coach",
+    icon: "coach",
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: "settings",
@@ -61,6 +67,7 @@ const navItems: NavItem[] = [
 ];
 
 const iconPaths: Record<IconName, string> = {
+  coach: "M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z",
   dashboard:
     "M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z",
   scanner:
@@ -187,7 +194,8 @@ export function AppShell({
     pathname === "/activities" ||
     pathname === "/reports" ||
     pathname === "/goals" ||
-    pathname === "/settings";
+    pathname === "/settings" ||
+    pathname === "/coach";
 
   // Login, sign-up and authentication callbacks
   // keep their original pages without the sidebar.
@@ -206,6 +214,8 @@ export function AppShell({
             ? "Daily Reports"
             : pathname === "/goals"
               ? "Personal Goals"
+          : pathname === "/coach"
+            ? "AI Coach"
           : pathname === "/settings"
             ? "Settings"
             : "Log Food";
