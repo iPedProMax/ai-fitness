@@ -9,10 +9,11 @@ import { submitAiRequest } from "@/lib/ai-submission";
 type Message = { id: number; author: "coach" | "you"; text: string };
 export default function CoachPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: 0, author: "coach", text: "Welcome! Pick a free guidance topic below, or ask an available AI model a question. AI chat requests share your daily AI refinement allowance." },
+    { id: 0, author: "coach", text: "Welcome! Pick a free guidance topic below, or ask an available AI model a question. Local Ollama uses no cloud AI credits; other chat models use your daily refinement allowance." },
   ]);
   const [model, setModel] = useState<AiModelId>("gemini");
   const [statuses, setStatuses] = useState<AiModelStatus[]>([]);
+  const [localAvailable, setLocalAvailable] = useState(false);
   const [draft, setDraft] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,11 @@ export default function CoachPage() {
       .then(async res => res.ok ? res.json() : null)
       .then(data => { if (!controller.signal.aborted && Array.isArray(data?.models)) setStatuses(data.models); })
       .catch(() => {});
+    // This checks ONLY the localhost AURA adapter. Scanner authorization stays unchanged.
+    fetch("/api/coach/local", {signal:controller.signal,cache:"no-store"})
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setLocalAvailable(data?.available === true); })
+      .catch(() => { if (!controller.signal.aborted) setLocalAvailable(false); });
     return () => controller.abort();
   }, []);
   function choose(topic: CoachTopic) {
@@ -35,6 +41,7 @@ export default function CoachPage() {
   // Same behavior as the scanner: the original Gemini choice stays visible when status lookup fails;
   // authenticated backend admission remains authoritative and will reject unavailable providers.
   if (statuses.length === 0) available.add("gemini");
+  if (localAvailable) available.add("ollama-local");
   const chosenEnabled = available.has(model);
   const listed = recommendedProviders("coach").map(id => aiModelCatalog.find(item => item.id === id)).filter((item): item is (typeof aiModelCatalog)[number] => Boolean(item));
   async function send(event: FormEvent<HTMLFormElement>) {
@@ -45,7 +52,11 @@ export default function CoachPage() {
     setError(null);
     const history = messages.slice(-6).map(entry => ({role: entry.author === "you" ? "user" as const : "assistant" as const, text: entry.text.slice(0, 500)}));
     try {
-      const response = await submitAiRequest("/api/coach/chat", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({message, model, history})}, {modelId:model});
+      const payload = {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({message, model, history})};
+      // Local dev has its own signed-in endpoint and in-memory throttle; never call a cloud API.
+      const response = model === "ollama-local"
+        ? await fetch("/api/coach/local", payload)
+        : await submitAiRequest("/api/coach/chat", payload, {modelId:model});
       const data = await response.json();
       if (!response.ok || typeof data.reply !== "string") throw new Error(typeof data.error === "string" ? data.error : "AI Coach is unavailable.");
       setMessages(previous => [...previous,
@@ -81,7 +92,7 @@ export default function CoachPage() {
             <label htmlFor="coach-message" className="block text-sm font-medium">Your question</label>
             <textarea id="coach-message" value={draft} rows={3} maxLength={650} onChange={e=>setDraft(e.target.value)} placeholder="e.g. Suggest a satisfying dinner with more protein" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm" />
             <button type="submit" disabled={!chosenEnabled || working || draft.trim().length < 3} className="cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{working ? "Thinking..." : "Ask AURA"}</button>
-            <p className="text-xs text-slate-500">AI chat shares your existing 60/day refinement allowance. One request uses one refinement credit. Your question and recent chat are sent to the selected provider; avoid entering sensitive details. No auto-fallback.</p>
+            <p className="text-xs text-slate-500">Local Ollama uses 0 cloud AI credits and has a separate 30/day development-process limit (resets on server restart). Other AI providers use your 60/day refinement allowance. Avoid sensitive details; no automatic fallback.</p>
             {error && <p role="alert" className="rounded-xl border border-red-200 p-3 text-sm text-red-700">{error}</p>}
           </form>
         </div>

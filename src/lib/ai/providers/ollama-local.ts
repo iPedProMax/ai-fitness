@@ -31,7 +31,7 @@ export function ollamaLocalBody(request: AiGenerationRequest): string {
   });
   const body = JSON.stringify({
     model: OLLAMA_LOCAL_MODEL,
-    messages: [{ role: "system", content: "Return only one JSON object matching the requested nutrition schema. Do not guess scale digits. Do not invent a food or its calories if the image cannot be identified." },
+    messages: [{ role: "system", content: "Return exactly one JSON object matching the requested JSON schema. For nutrition tasks, do not invent scale digits, unseen labels, foods, or calorie data. For coaching tasks, put the answer in the requested reply field." },
       { role: "user", content: prompt, ...(images.length ? { images } : {}) }],
     format: request.responseSchema,
     stream: false,
