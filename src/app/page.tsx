@@ -908,7 +908,11 @@ export default function Home() {
                             </span>}
 
                             {analysis.entryMethod === "MANUAL" && <span>Nutrition: User-entered</span>}
-                            {analysis.entryMethod === "TEXT_AI" && <span>Nutrition: AI-assisted, reviewed by user</span>}
+                            {analysis.entryMethod === "TEXT_AI" && <span>
+                              {food.confidenceSource === "MODEL_REPORTED"
+                                ? `AI-reported confidence: ${Math.round(food.confidence * 100)}% (not calibrated)`
+                                : "Nutrition: AI-assisted, confidence unverified"}
+                            </span>}
                             {food.nutritionSource && (
                               <span>
                                 Nutrition:{" "}

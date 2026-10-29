@@ -30,7 +30,7 @@ function parseNumber(value: string, label: string, optional = false): number | n
  */
 export function makeManualFoodAnalysis(
   items: ManualFoodInput[],
-  options: { aiAssisted?: boolean } = {}
+  options: { aiAssisted?: boolean; aiConfidences?: readonly (number | null)[] } = {}
 ): FoodAnalysis {
   if (items.length < 1 || items.length > 10) {
     throw new Error("Enter between 1 and 10 food items.");
@@ -56,6 +56,11 @@ export function makeManualFoodAnalysis(
       ...(carbs === null ? ["carbs" as const] : []),
       ...(fat === null ? ["fat" as const] : []),
     ];
+    // A model's own score is only retained for an unedited AI suggestion.
+    // Pure manual values have no calibrated numeric confidence.
+    const reported = options.aiAssisted ? options.aiConfidences?.[index] : undefined;
+    const hasReported = typeof reported === "number" && Number.isFinite(reported) &&
+      reported >= 0 && reported <= 1;
     return {
       name,
       estimatedGrams: grams ?? 0,
@@ -64,7 +69,10 @@ export function makeManualFoodAnalysis(
       carbs: carbs ?? 0,
       fat: fat ?? 0,
       ...(unknownMacros.length ? { unknownMacros } : {}),
-      confidence: 1,
+      // Numeric 1 remains a legacy schema placeholder for user-entered data.
+      // The explicit source must be consulted before displaying any percentage.
+      confidence: hasReported ? reported : 1,
+      confidenceSource: hasReported ? "MODEL_REPORTED" as const : "NOT_CALIBRATED" as const,
     };
   });
   return foodAnalysisSchema.parse({

@@ -7,6 +7,7 @@ import type { FoodAnalysis } from "@/lib/food-analysis";
 import { analyzeFoodText } from "@/lib/analyze-food-text";
 import { makeManualFoodAnalysis, type ManualFoodInput } from "@/lib/manual-food";
 import { foodEmoji } from "@/lib/food-emoji";
+import { matchAiReportedConfidence } from "@/lib/manual-ai-confidence";
 
 
 function emptyItem(): ManualFoodInput {
@@ -59,12 +60,15 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   const [items, setItems] = useState<ManualFoodInput[]>([emptyItem()]);
   const [description, setDescription] = useState("");
   const [aiAssisted, setAiAssisted] = useState(false);
+  const [modelConfidences, setModelConfidences] = useState<(number | null)[]>([]);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function updateItem(index: number, key: keyof ManualFoodInput, value: string) {
     onReset();
     setItems((current) => current.map((item, i) => i === index ? { ...item, [key]: value } : item));
+    // A changed value is no longer the original AI estimate.
+    setModelConfidences((current) => current.map((score, i) => i === index ? null : score));
     setError(null);
   }
 
@@ -72,7 +76,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
     event.preventDefault();
     setError(null);
     try {
-      onResult(makeManualFoodAnalysis(items, { aiAssisted }));
+      onResult(makeManualFoodAnalysis(items, { aiAssisted, aiConfidences: modelConfidences }));
     } catch (issue) {
       setError(issue instanceof Error ? issue.message : "Invalid food details.");
     }
@@ -98,6 +102,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
       if (next.length > 10) throw new Error("Too many foods. Please split this meal.");
       onReset();
       setItems(next);
+      setModelConfidences(matchAiReportedConfidence(next, estimate.foods));
       setAiAssisted(true);
     } catch (issue) {
 
@@ -126,7 +131,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
         <label className="block text-sm font-semibold text-slate-700">
           Describe your meal (optional)
           <textarea rows={3} maxLength={600} value={description}
-            onChange={(event) => { onReset(); setDescription(event.target.value); }}
+            onChange={(event) => { onReset(); setDescription(event.target.value); setModelConfidences(current => current.map(() => null)); }}
             placeholder="e.g. 200 g grilled bangus with one cup of rice"
             className={inputClass} />
         </label>
@@ -142,6 +147,11 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
         {items.map((item, index) => (
           <fieldset key={index} className="rounded-xl border border-slate-200 p-3">
             <legend className="px-1 text-sm font-semibold">Food {index + 1}</legend>
+            {modelConfidences[index] != null && (
+              <p className="mb-3 text-xs text-violet-700">
+                AI-reported confidence: {Math.round(modelConfidences[index] * 100)}% (not calibrated)
+              </p>
+            )}
             <div className="mb-3 flex items-center gap-3">
               <span aria-hidden="true" className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-2xl">{foodEmoji(item.name)}</span>
               <span className="text-xs text-slate-500">Automatic food emoji; no image needed</span>
@@ -165,11 +175,11 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
                 </label>
               ))}
             </div>
-            {items.length > 1 && <button type="button" className="mt-3 text-xs font-semibold text-red-600 hover:underline" onClick={() => { onReset(); setItems((current) => current.filter((_, i) => i !== index)); }}>Remove item</button>}
+            {items.length > 1 && <button type="button" className="mt-3 text-xs font-semibold text-red-600 hover:underline" onClick={() => { onReset(); setItems((current) => current.filter((_, i) => i !== index)); setModelConfidences(current => current.filter((_, i) => i !== index)); }}>Remove item</button>}
           </fieldset>
         ))}
         {items.length < 10 && (
-          <button type="button" onClick={() => { onReset(); setItems((current) => [...current, emptyItem()]); }} className="text-sm font-semibold text-emerald-700 hover:underline">+ Add another food</button>
+          <button type="button" onClick={() => { onReset(); setItems((current) => [...current, emptyItem()]); setModelConfidences(current => [...current, null]); }} className="text-sm font-semibold text-emerald-700 hover:underline">+ Add another food</button>
         )}
           </div>
           <aside aria-label="Live nutrition summary" className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5 lg:sticky lg:top-24">
@@ -183,8 +193,17 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
             </div>
             <p className="mt-2 text-xs text-slate-500">*Totals of provided values only; blank macros remain unknown.</p>
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-              <p className="font-bold">AI confidence: Not calibrated</p>
-              <p className="mt-1">A verified confidence percentage is not yet available for manual text estimates. Review amounts before saving.</p>
+              {modelConfidences.some(value => value !== null) ? (
+                <>
+                  <p className="font-bold">Mean AI-reported confidence: {Math.round(modelConfidences.filter((value): value is number => value !== null).reduce((sum, value) => sum + value, 0) / modelConfidences.filter(value => value !== null).length * 100)}%</p>
+                  <p className="mt-1">Average of available model self-reported scores, NOT a verified probability of correct calories. Editing a food removes its score.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold">Confidence: Unverified</p>
+                  <p className="mt-1">No calibrated confidence percentage is available for these manually entered or edited values.</p>
+                </>
+              )}
               {ambiguousPortions && <p className="mt-2 font-medium">Your description uses a vague portion (such as a dab or spoonful). Enter an approximate quantity to improve accuracy.</p>}
               {calorieEntriesMissing && <p className="mt-2">Some foods have no entered calories, so this total is incomplete.</p>}
             </div>

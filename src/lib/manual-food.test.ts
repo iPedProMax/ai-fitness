@@ -33,6 +33,15 @@ describe("manual and AI-assisted nutrition entry", () => {
   it("requires a food name", () => {
     expect(() => makeManualFoodAnalysis([{ ...item, name: " " }])).toThrow(/needs a name/);
   });
+  it("preserves actual model confidence only for AI-assisted, unedited suggestions", () => {
+    const withScore = makeManualFoodAnalysis([item], { aiAssisted: true, aiConfidences: [0.68] });
+    expect(withScore.foods[0].confidence).toBe(0.68);
+    expect(withScore.foods[0].confidenceSource).toBe("MODEL_REPORTED");
+    const unverified = makeManualFoodAnalysis([item], { aiAssisted: true, aiConfidences: [null] });
+    expect(unverified.foods[0].confidenceSource).toBe("NOT_CALIBRATED");
+    const manual = makeManualFoodAnalysis([item], { aiConfidences: [0.99] });
+    expect(manual.foods[0].confidenceSource).toBe("NOT_CALIBRATED");
+  });
   it("tracks AI-assisted entries separately", () => {
     const result = makeManualFoodAnalysis([item], { aiAssisted: true });
     expect(result.entryMethod).toBe("TEXT_AI");

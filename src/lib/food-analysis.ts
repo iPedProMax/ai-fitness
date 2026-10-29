@@ -59,6 +59,9 @@ export const foodItemSchema =
     confidence:
       z.number().min(0).max(1),
 
+    // Distinguish a model's self-reported score from a schema-only placeholder.
+    confidenceSource: z.enum(["MODEL_REPORTED", "NOT_CALIBRATED"]).optional(),
+
     // Explicit local user correction, recorded in the meal analysis snapshot.
     userCorrected: z.boolean().optional(),
 
