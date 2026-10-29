@@ -5,10 +5,13 @@ export const aiModelCatalog = [
   { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", maxImages: 10, text: true, vision: true },
   { id: "cloudflare", name: "Cloudflare Workers AI", maxImages: 1, text: true, vision: true },
   { id: "groq", name: "GroqCloud (Qwen 3.8)", maxImages: 2, text: true, vision: true },
-  { id: "openrouter", name: "OpenRouter", maxImages: 0, text: false, vision: false },
+  { id: "openrouter", name: "OpenRouter Free (text)", maxImages: 0, text: true, vision: false },
   { id: "mistral", name: "Mistral 14B (Experimental)", maxImages: 1, text: true, vision: true },
-  { id: "huggingface", name: "Hugging Face", maxImages: 0, text: false, vision: false },
-  { id: "cerebras", name: "Cerebras", maxImages: 0, text: false, vision: false },
+  { id: "ollama-local", name: "Ollama Local (Qwen 2.5 VL 3B)", maxImages: 1, text: true, vision: true },
+  { id: "huggingface", name: "Hugging Face (text, gated)", maxImages: 0, text: true, vision: false },
+  { id: "cerebras", name: "Cerebras Free (text)", maxImages: 0, text: true, vision: false },
+  { id: "zai", name: "Z.ai GLM (text, gated)", maxImages: 0, text: true, vision: false },
+  { id: "siliconflow", name: "SiliconFlow Qwen (text, gated)", maxImages: 0, text: true, vision: false },
 ] as const;
 
 export type AiModelId = (typeof aiModelCatalog)[number]["id"];

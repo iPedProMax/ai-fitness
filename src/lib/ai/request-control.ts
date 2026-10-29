@@ -107,11 +107,13 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
 // its published free-tier TPM; Cloudflare's local token cap is NOT Neurons.
 // No refund for ambiguous upstream failures.
 function extraProviderReservation(id: string, request: AiGenerationRequest): number | null {
-  if (id !== "groq" && id !== "cloudflare" && id !== "mistral") return null;
+  if (!["groq", "cloudflare", "mistral", "ollama-local", "openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(id)) return null;
   const imageCount = request.input.filter(part => part.type === "image").length;
   if (id === "groq" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "mistral" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "ollama-local" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (["openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(id) && imageCount !== 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");
@@ -121,7 +123,7 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   const tokens = id === "groq"
     ? Math.ceil(bytes / 3) + imageCount * 2048 + groqCompletionTokens(imageCount) + 256
     : Math.ceil(bytes * 1.25) + 1024 + 4096 + imageCount * 2048;
-  if (tokens > (id === "groq" ? 7800 : id === "mistral" ? 12000 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
+  if (tokens > (id === "groq" ? 7800 : id === "mistral" ? 12000 : id === "ollama-local" ? 16000 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
   return tokens;
 }
 

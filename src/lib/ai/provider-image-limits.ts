@@ -5,6 +5,12 @@ export const PROVIDER_IMAGE_LIMITS = {
   cloudflare: 1,
   groq: 2,
   mistral: 1,
+  "ollama-local": 1,
+  openrouter: 0,
+  zai: 0,
+  siliconflow: 0,
+  huggingface: 0,
+  cerebras: 0,
 } as const;
 
 export type AiProviderChoice = keyof typeof PROVIDER_IMAGE_LIMITS;

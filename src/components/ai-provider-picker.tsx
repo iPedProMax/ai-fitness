@@ -10,6 +10,12 @@ const choices: { id: AiProviderChoice; label: string }[] = [
   { id: "cloudflare", label: "Cloudflare Workers AI" },
   { id: "groq", label: "GroqCloud (Qwen Vision)" },
   { id: "mistral", label: "Mistral 14B (Experimental)" },
+  { id: "ollama-local", label: "Ollama Local (Qwen Vision, dev only)" },
+  { id: "openrouter", label: "OpenRouter Free - Text" },
+  { id: "zai", label: "Z.ai GLM - Text" },
+  { id: "siliconflow", label: "SiliconFlow - Text" },
+  { id: "huggingface", label: "Hugging Face - Text" },
+  { id: "cerebras", label: "Cerebras Free - Text" },
 ];
 
 export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
@@ -41,8 +47,10 @@ export function AiProviderPicker({ value, onChange, photoCount = 0 }: {
         })}
       </select>
       <p role="status" className="mt-2 text-xs text-slate-600">
-        {!supported ? value === "groq" ? "Groq supports up to two photos per request. Remove extras or choose Gemini."
+        {!supported && ["openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(value) ? "This AI is for manual text estimates and coaching, not meal photos."
+          : !supported ? value === "groq" ? "Groq supports up to two photos per request. Remove extras or choose Gemini."
           : value === "mistral" ? "Mistral supports one photo. Choose Gemini for multiple photos."
+          : value === "ollama-local" ? "Local Ollama supports one photo and runs only on your development PC."
           : "Cloudflare currently supports one photo per request. Choose Gemini for multiple photos."
           : status?.enabled === false ? (status.reason ?? "This provider is unavailable right now.")
           : "Only the selected provider is used. No automatic switching or paid fallback."}

@@ -17,6 +17,14 @@ export async function getAiModelStatuses(): Promise<AiModelStatus[]> {
         : policy?.reason ?? "Free-tier model not activated in staging";
       return { ...model, enabled, reason };
     }
+    if (model.id === "ollama-local") {
+      const policy = policies.get(model.id);
+      const localOnly = process.env.NODE_ENV !== "production" && process.env.AI_ENABLE_OLLAMA_LOCAL === "true";
+      const enabled = localOnly && process.env.AI_ENABLED === "true" && policy?.enabled === true;
+      return { ...model, enabled, reason: enabled ? null : !localOnly
+        ? "Local Ollama is disabled (development only, no cloud billing)"
+        : policy?.reason ?? "Local Ollama staging policy not activated" };
+    }
     if (model.id === "cloudflare" || model.id === "groq" || model.id === "mistral") {
       const policy = policies.get(model.id);
       const credentialsConfigured = model.id === "cloudflare"
@@ -27,6 +35,20 @@ export async function getAiModelStatuses(): Promise<AiModelStatus[]> {
       const enabled = process.env.AI_ENABLED === "true" && credentialsConfigured && policy?.enabled === true;
       return { ...model, enabled, reason: enabled ? null : !credentialsConfigured
         ? "Provider not configured for verified free use" : policy?.reason ?? "Provider policy not activated" };
+    }
+    if (["openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(model.id)) {
+      const localConfig: Record<string, boolean> = {
+        openrouter: process.env.AI_ENABLE_OPENROUTER_FREE === "true" && process.env.OPENROUTER_FREE_ONLY_CONFIRMED === "true" && Boolean(process.env.OPENROUTER_API_KEY),
+        zai: process.env.AI_ENABLE_ZAI_FREE === "true" && process.env.ZAI_ZERO_SPEND_CONFIRMED === "true" && Boolean(process.env.ZAI_API_KEY),
+        siliconflow: process.env.AI_ENABLE_SILICONFLOW_FREE === "true" && process.env.SILICONFLOW_ZERO_SPEND_CONFIRMED === "true" && Boolean(process.env.SILICONFLOW_API_KEY),
+        huggingface: process.env.AI_ENABLE_HUGGINGFACE_FREE === "true" && process.env.HUGGINGFACE_ZERO_SPEND_CONFIRMED === "true" && Boolean(process.env.HF_TOKEN),
+        cerebras: process.env.AI_ENABLE_CEREBRAS_FREE === "true" && process.env.CEREBRAS_FREE_PLAN_CONFIRMED === "true" && Boolean(process.env.CEREBRAS_API_KEY),
+      };
+      const policy = policies.get(model.id);
+      const enabled = process.env.AI_ENABLED === "true" && localConfig[model.id] && policy?.enabled === true;
+      return { ...model, enabled, reason: enabled ? null : !localConfig[model.id]
+        ? "Text provider disabled until zero-spend usage is verified"
+        : policy?.reason ?? "Text provider database policy not approved" };
     }
     return { ...model, enabled: false, reason: "Integration not installed yet" };
   });

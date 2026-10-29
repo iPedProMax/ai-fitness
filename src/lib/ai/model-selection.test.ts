@@ -69,7 +69,7 @@ describe("single Gemini model admission", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it.each(["gemini-3.8-flash", "gemini-3.6-flash", "openrouter"])(
+  it.each(["gemini-3.8-flash", "gemini-3.6-flash"])(
     "blocks unsupported %s before using provider or credits", async model => {
       const response = await analyze(imageRequest(model));
       expect(response.status).toBe(400);
@@ -79,6 +79,22 @@ describe("single Gemini model admission", () => {
     },
   );
 
+  it("rejects OpenRouter photo requests as text-only before provider dispatch or credits", async () => {
+    const response = await analyze(imageRequest("openrouter", 1));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(provider).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("allows an explicitly available text-only provider for text tasks", async () => {
+    const textProvider = {
+      ...defaultProvider, id: "openrouter",
+      capabilities: { text: true, vision: false, maxImages: 0, structuredJson: true },
+    };
+    provider.mockReturnValue(textProvider);
+    expect(await selectRequestedAiModel("openrouter", 0)).toMatchObject({ provider: textProvider });
+    expect((await selectRequestedAiModel("openrouter", 1)).error?.status).toBe(422);
+  });
   it("blocks multi-photo requests for an old non-default model", async () => {
     const response = await analyze(imageRequest("cloudflare", 2));
     expect(response.status).toBe(422);
@@ -92,7 +108,7 @@ describe("single Gemini model admission", () => {
   });
 
   it("rejects attempts to choose another model in refinements", async () => {
-    const response = await refine(refineRequest("openrouter"));
+    const response = await refine(refineRequest("gemini-3.8-flash"));
     expect(response.status).toBe(400);
     expect(reserve).not.toHaveBeenCalled();
   });
@@ -122,6 +138,11 @@ describe("single Gemini model admission", () => {
     expect(await selectRequestedAiModel("mistral", 1)).toMatchObject({ provider: { id: "mistral" } });
     expect((await selectRequestedAiModel("mistral", 2)).error?.status).toBe(422);
     const response = await analyze(imageRequest("mistral", 2));
+    expect(response.status).toBe(422);
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("rejects multiple Ollama Local photos before credits are reserved", async () => {
+    const response = await analyze(imageRequest("ollama-local", 2));
     expect(response.status).toBe(422);
     expect(reserve).not.toHaveBeenCalled();
   });
