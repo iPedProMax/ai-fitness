@@ -8,6 +8,10 @@ import { analyzeFoodText } from "@/lib/analyze-food-text";
 import { makeManualFoodAnalysis, type ManualFoodInput } from "@/lib/manual-food";
 import { foodEmoji } from "@/lib/food-emoji";
 import { matchAiReportedConfidence } from "@/lib/manual-ai-confidence";
+import {
+  canSubmitPortionAnswers, findPortionQuestions, makeClarifiedPortionPrompt,
+  type PortionAnswer, type PortionQuestion,
+} from "@/lib/portion-clarification";
 
 
 function emptyItem(): ManualFoodInput {
@@ -62,9 +66,13 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   const [aiAssisted, setAiAssisted] = useState(false);
   const [modelConfidences, setModelConfidences] = useState<(number | null)[]>([]);
   const [working, setWorking] = useState(false);
+  const [pendingPortions, setPendingPortions] = useState<{ prompt: string; questions: PortionQuestion[] } | null>(null);
+  const [portionAnswers, setPortionAnswers] = useState<Record<string, PortionAnswer>>({});
   const [error, setError] = useState<string | null>(null);
 
   function updateItem(index: number, key: keyof ManualFoodInput, value: string) {
+    setPendingPortions(null);
+    setPortionAnswers({});
     onReset();
     setItems((current) => current.map((item, i) => i === index ? { ...item, [key]: value } : item));
     // A changed value is no longer the original AI estimate.
@@ -82,7 +90,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
     }
   }
 
-  async function handleAi() {
+  function handleAi() {
     if (working) return;
     const prompt = description.trim() || items.map((item) =>
       [item.name.trim(), item.grams.trim() ? `${item.grams.trim()} g` : ""].filter(Boolean).join(", ")
@@ -91,6 +99,30 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
       setError("Describe the food or enter a food name before asking AI.");
       return;
     }
+    const questions = findPortionQuestions(prompt);
+    if (questions.length > 0) {
+      setPendingPortions({ prompt, questions });
+      setPortionAnswers({});
+      setError(null);
+      return; // No AI API request, no credit spent on the clarifying question.
+    }
+    setPendingPortions(null);
+    void runAiEstimate(prompt);
+  }
+
+  function handleConfirmedPortions() {
+    if (!pendingPortions || working) return;
+    try {
+      const clarifiedPrompt = makeClarifiedPortionPrompt(pendingPortions.prompt, pendingPortions.questions, portionAnswers);
+      setPendingPortions(null);
+      setError(null);
+      void runAiEstimate(clarifiedPrompt); // Exactly one estimate request after local clarification.
+    } catch (issue) {
+      setError(issue instanceof Error ? issue.message : "Please clarify the portions.");
+    }
+  }
+
+  async function runAiEstimate(prompt: string) {
     setWorking(true);
     setError(null);
     try {
@@ -131,7 +163,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
         <label className="block text-sm font-semibold text-slate-700">
           Describe your meal (optional)
           <textarea rows={3} maxLength={600} value={description}
-            onChange={(event) => { onReset(); setDescription(event.target.value); setModelConfidences(current => current.map(() => null)); }}
+            onChange={(event) => { onReset(); setDescription(event.target.value); setPendingPortions(null); setPortionAnswers({}); setModelConfidences(current => current.map(() => null)); }}
             placeholder="e.g. 200 g grilled bangus with one cup of rice"
             className={inputClass} />
         </label>
@@ -140,6 +172,61 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
           {working ? "Estimating..." : "✨ Estimate nutrition with AI"}
         </button>
         <p className="text-xs text-slate-500">AI only runs when you press the button. Your existing typed values won't be overwritten.</p>
+        {pendingPortions && (
+          <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Clarify food portions">
+            <div>
+              <p className="text-sm font-bold text-amber-900">Quick portion check - no extra AI credit</p>
+              <p className="mt-1 text-xs text-amber-900">The quantities below are only examples, not food weights. Tell us if each amount is for the whole meal or for each item.</p>
+            </div>
+            {pendingPortions.questions.map(question => (
+              <div key={question.id} className="space-y-2 rounded-xl border border-amber-200 bg-white p-3">
+                <p className="text-sm font-semibold text-slate-900">What did you mean by &quot;{question.phrase}&quot;?</p>
+                {question.examples.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {question.examples.map(example => (
+                      <button key={example} type="button"
+                        aria-pressed={portionAnswers[question.id]?.amount === example}
+                        onClick={() => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: example } }))}
+                        className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium ${portionAnswers[question.id]?.amount === example ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-700"}`}>
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <label className="block text-xs font-medium text-slate-700">
+                  Or enter your own amount (grams, teaspoons, or pieces)
+                  <input value={portionAnswers[question.id]?.amount === "UNKNOWN" ? "" : portionAnswers[question.id]?.amount ?? ""}
+                    onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: event.target.value } }))}
+                    maxLength={90} placeholder="e.g. 5 g, or 1 tsp" className={inputClass} />
+                </label>
+                {portionAnswers[question.id]?.amount !== "UNKNOWN" && (
+                  <label className="block text-xs font-semibold text-slate-700">This quantity applies to:
+                    <select value={portionAnswers[question.id]?.scope ?? ""}
+                      onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: current[question.id]?.amount ?? "", scope: event.target.value as "total" | "each" } }))}
+                      className={`${inputClass} cursor-pointer`}>
+                      <option value="">Select one - no assumptions</option>
+                      <option value="total">The whole meal (total amount)</option>
+                      <option value="each">Each cracker / portion / described item</option>
+                    </select>
+                  </label>
+                )}
+                <button type="button" className="cursor-pointer text-xs font-semibold text-slate-600 underline"
+                  onClick={() => setPortionAnswers(current => ({ ...current, [question.id]: { amount: "UNKNOWN" } }))}>
+                  I am not sure - keep the uncertainty
+                </button>
+                {portionAnswers[question.id]?.amount === "UNKNOWN" && <p className="text-xs text-amber-800">Amount marked unknown. AI will be asked to state any assumptions.</p>}
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={working || !canSubmitPortionAnswers(pendingPortions.questions, portionAnswers)}
+                onClick={handleConfirmedPortions} className="cursor-pointer rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                Continue to AI estimate (one analysis)
+              </button>
+              <button type="button" onClick={() => { setPendingPortions(null); setPortionAnswers({}); }}
+                className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
       <form onSubmit={handleReview} className="mt-5 space-y-4">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px] lg:items-start">
@@ -204,7 +291,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
                   <p className="mt-1">No calibrated confidence percentage is available for these manually entered or edited values.</p>
                 </>
               )}
-              {ambiguousPortions && <p className="mt-2 font-medium">Your description uses a vague portion (such as a dab or spoonful). Enter an approximate quantity to improve accuracy.</p>}
+              {ambiguousPortions && <p className="mt-2 font-medium">Your description uses a vague portion (such as a dab or spoonful). Use the portion check before AI estimation, or enter a measured quantity for better accuracy.</p>}
               {calorieEntriesMissing && <p className="mt-2">Some foods have no entered calories, so this total is incomplete.</p>}
             </div>
           </aside>
