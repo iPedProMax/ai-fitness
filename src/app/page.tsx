@@ -481,7 +481,7 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-        <section className="mx-auto mb-6 max-w-2xl">
+        <section className={entryMode === "manual" ? "mx-auto mb-6 max-w-5xl" : "mx-auto mb-6 max-w-2xl"}>
           <p className="mb-2 text-sm font-medium text-emerald-600">
             Log Food
           </p>
@@ -499,7 +499,7 @@ export default function Home() {
           </p>
         </section>
 
-        <div className="mx-auto mb-6 flex max-w-2xl gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
+        <div className={`mx-auto mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1 ${entryMode === "manual" ? "max-w-5xl" : "max-w-2xl"}`} role="group" aria-label="How to log food">
           <button type="button" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
           <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
         </div>
@@ -516,7 +516,7 @@ export default function Home() {
           className={
             analysisStarted
               ? "grid items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
-              : "mx-auto max-w-2xl"
+              : entryMode === "manual" ? "mx-auto w-full max-w-5xl" : "mx-auto max-w-2xl"
           }
         >
           {entryMode === "photo" ? (
