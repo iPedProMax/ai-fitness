@@ -152,6 +152,16 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   const knownProtein = items.reduce((sum, food) => sum + numberOrZero(food.protein), 0);
   const knownCarbs = items.reduce((sum, food) => sum + numberOrZero(food.carbs), 0);
   const knownFat = items.reduce((sum, food) => sum + numberOrZero(food.fat), 0);
+  // Preview the exact text context to be sent before reserving an AI credit.
+  let portionPreview = "";
+  let portionPreviewError: string | null = null;
+  if (pendingPortions && canSubmitPortionAnswers(pendingPortions.questions, portionAnswers)) {
+    try {
+      portionPreview = makeClarifiedPortionPrompt(pendingPortions.prompt, pendingPortions.questions, portionAnswers);
+    } catch (issue) {
+      portionPreviewError = issue instanceof Error ? issue.message : "Portion prompt is invalid.";
+    }
+  }
   const calorieEntriesMissing = items.some(food => !food.calories.trim());
   const ambiguousPortions = /\b(dab|little|some|handful|spoonful|splash|pinch|few|small amount)\b/i.test(description);
   const inputClass = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100";
@@ -176,7 +186,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
           <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Clarify food portions">
             <div>
               <p className="text-sm font-bold text-amber-900">Quick portion check - no extra AI credit</p>
-              <p className="mt-1 text-xs text-amber-900">The quantities below are only examples, not food weights. Tell us if each amount is for the whole meal or for each item.</p>
+              <p className="mt-1 text-xs text-amber-900">These are example portions, not verified food weights. If you choose each cracker/item, also enter how many items you ate.</p>
             </div>
             {pendingPortions.questions.map(question => (
               <div key={question.id} className="space-y-2 rounded-xl border border-amber-200 bg-white p-3">
@@ -194,21 +204,32 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
                   </div>
                 )}
                 <label className="block text-xs font-medium text-slate-700">
-                  Or enter your own amount (grams, teaspoons, or pieces)
+                  Or enter your own measured amount (e.g. 5 g, 1 tsp, 1/2 tbsp)
                   <input value={portionAnswers[question.id]?.amount === "UNKNOWN" ? "" : portionAnswers[question.id]?.amount ?? ""}
                     onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: event.target.value } }))}
                     maxLength={90} placeholder="e.g. 5 g, or 1 tsp" className={inputClass} />
                 </label>
                 {portionAnswers[question.id]?.amount !== "UNKNOWN" && (
-                  <label className="block text-xs font-semibold text-slate-700">This quantity applies to:
-                    <select value={portionAnswers[question.id]?.scope ?? ""}
-                      onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: current[question.id]?.amount ?? "", scope: event.target.value as "total" | "each" } }))}
-                      className={`${inputClass} cursor-pointer`}>
-                      <option value="">Select one - no assumptions</option>
-                      <option value="total">The whole meal (total amount)</option>
-                      <option value="each">Each cracker / portion / described item</option>
-                    </select>
-                  </label>
+                  <>
+                    <label className="block text-xs font-semibold text-slate-700">This quantity applies to:
+                      <select value={portionAnswers[question.id]?.scope ?? ""}
+                        onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: current[question.id]?.amount ?? "", scope: event.target.value as "total" | "each", eachCount: event.target.value === "each" ? current[question.id]?.eachCount : undefined } }))}
+                        className={`${inputClass} cursor-pointer`}>
+                        <option value="">Select one - no assumptions</option>
+                        <option value="total">The whole meal (total amount)</option>
+                        <option value="each">Each cracker / portion / described item</option>
+                      </select>
+                    </label>
+                    {portionAnswers[question.id]?.scope === "each" && (
+                      <label className="block text-xs font-semibold text-slate-700">
+                        How many crackers / items received this amount? (1â€“100)
+                        <input type="number" min="1" max="100" step="1" inputMode="numeric"
+                          value={portionAnswers[question.id]?.eachCount ?? ""}
+                          onChange={event => setPortionAnswers(current => ({ ...current, [question.id]: { ...current[question.id], amount: current[question.id]?.amount ?? "", scope: "each", eachCount: event.target.value } }))}
+                          placeholder="e.g. 4 crackers" className={inputClass} />
+                      </label>
+                    )}
+                  </>
                 )}
                 <button type="button" className="cursor-pointer text-xs font-semibold text-slate-600 underline"
                   onClick={() => setPortionAnswers(current => ({ ...current, [question.id]: { amount: "UNKNOWN" } }))}>
@@ -217,8 +238,16 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
                 {portionAnswers[question.id]?.amount === "UNKNOWN" && <p className="text-xs text-amber-800">Amount marked unknown. AI will be asked to state any assumptions.</p>}
               </div>
             ))}
+            {portionPreviewError && <p role="alert" className="text-xs font-medium text-red-700">{portionPreviewError}</p>}
+            {portionPreview && (
+              <details className="rounded-lg border border-amber-200 bg-white p-3 text-xs">
+                <summary className="cursor-pointer font-semibold text-slate-700">Preview the exact description sent to AI</summary>
+                <p className="mt-2 whitespace-pre-wrap break-words text-slate-700">{portionPreview}</p>
+                <p className="mt-2 text-amber-800">An AI estimate still requires an analysis credit. Teaspoon/mL values describe volume, not food weight.</p>
+              </details>
+            )}
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={working || !canSubmitPortionAnswers(pendingPortions.questions, portionAnswers)}
+              <button type="button" disabled={working || !portionPreview}
                 onClick={handleConfirmedPortions} className="cursor-pointer rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 Continue to AI estimate (one analysis)
               </button>

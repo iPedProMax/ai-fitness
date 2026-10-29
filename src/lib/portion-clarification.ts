@@ -1,7 +1,7 @@
 /** Local preflight clarifications: no API request or quota debit is made here. */
 export type PortionKind = "dab" | "spoonful" | "handful" | "splash" | "pinch" | "general";
 export type PortionScope = "total" | "each";
-export type PortionAnswer = { amount: string; scope?: PortionScope };
+export type PortionAnswer = { amount: string; scope?: PortionScope; eachCount?: string };
 export type PortionQuestion = {
   id: string;
   phrase: string;
@@ -43,14 +43,52 @@ export function findPortionQuestions(description: string): PortionQuestion[] {
   return found;
 }
 
+/** Reject unsupported free text instead of passing made-up measurements to AI. */
+function validAmount(amount: string, question: PortionQuestion): boolean {
+  if (question.examples.includes(amount)) return true;
+  // Custom amounts require a positive measured quantity and a real unit.
+  const numeric = amount.match(/^(\d+(?:\.\d+)?|\d+\/\d+)\s*(g|grams?|kg|mL|milliliters?|tsp|teaspoons?|tbsp|tablespoons?|cups?|pieces?|slices?|crackers?)$/i);
+  if (!numeric) return false;
+  const number = numeric[1].includes("/")
+    ? Number(numeric[1].split("/")[0]) / Number(numeric[1].split("/")[1])
+    : Number(numeric[1]);
+  return Number.isFinite(number) && number > 0 && number <= 10000;
+}
+
+function validCount(count: string | undefined): boolean {
+  return typeof count === "string" && /^[1-9]\d{0,2}$/.test(count.trim()) && Number(count.trim()) <= 100;
+}
+
 export function canSubmitPortionAnswers(questions: readonly PortionQuestion[], answers: Record<string, PortionAnswer>): boolean {
   return questions.length > 0 && questions.every(question => {
     const answer = answers[question.id];
     if (!answer) return false;
     const amount = answer.amount.trim();
     if (amount === "UNKNOWN") return true;
-    return amount.length >= 2 && amount.length <= 90 && (answer.scope === "total" || answer.scope === "each");
+    if (!validAmount(amount, question)) return false;
+    if (answer.scope === "total") return true;
+    return answer.scope === "each" && validCount(answer.eachCount);
   });
+}
+
+/** Multiplication works for volumes and weights, not a nutrition-density claim. */
+function statedTotal(amount: string, count: number): string {
+  const explicitVolume = amount.match(/\(\s*(\d+(?:\.\d+)?)\s*mL\s*\)/i);
+  let magnitude: number;
+  let unit: string;
+  if (explicitVolume) {
+    magnitude = Number(explicitVolume[1]);
+    unit = "mL";
+  } else {
+    const measured = amount.match(/^(\d+(?:\.\d+)?|\d+\/\d+)\s*(g|grams?|kg|mL|milliliters?|tsp|teaspoons?|tbsp|tablespoons?|cups?)$/i);
+    if (!measured) return "";
+    magnitude = measured[1].includes("/")
+      ? Number(measured[1].split("/")[0]) / Number(measured[1].split("/")[1])
+      : Number(measured[1]);
+    unit = measured[2];
+  }
+  const total = Math.round(magnitude * count * 100) / 100;
+  return `; calculated total: ${total} ${unit} across all ${count} items (do not multiply again)`;
 }
 
 /** Adds user-supplied context; never converts a spoon-volume into food grams. */
@@ -64,8 +102,12 @@ export function makeClarifiedPortionPrompt(
     const answer = answers[question.id];
     if (answer.amount.trim() === "UNKNOWN") return `${question.phrase}: quantity unknown; state assumptions`;
     const value = answer.amount.trim().replace(/\s+/g, " ");
-    const scope = answer.scope === "each" ? "per described item" : "for the whole meal";
-    return `${question.phrase}: ${value} ${scope}`;
+    if (answer.scope === "each") {
+      const count = Number(answer.eachCount);
+      // Explicit count matters: 1 tsp on EACH of 4 crackers is not 1 tsp total.
+      return `${question.phrase}: ${value} for each of exactly ${count} described items` + statedTotal(value, count);
+    }
+    return `${question.phrase}: ${value} for the whole meal (total amount, do not multiply)`;
   }).join("; ");
   const prompt = `${description.trim()}\nUser-confirmed portion details (approximate; volume is not weight): ${details}`;
   if (prompt.length > 600) throw new Error("The description plus portion details exceeds 600 characters. Shorten your meal description and try again.");
