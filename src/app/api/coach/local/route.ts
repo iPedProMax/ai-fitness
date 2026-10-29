@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { createOllamaLocalProvider, OLLAMA_LOCAL_MODEL } from "@/lib/ai/providers/ollama-local";
 import { coachRequestSchema, coachPrompt, coachAnswerSchema, coachJsonSchema } from "@/lib/ai/coach-prompt";
+import { readCoachUserSummary } from "@/lib/coach-user-context";
 
 /** AURA local development only. No Supabase quota bypass on the existing AI routes. */
 export const runtime = "nodejs";
@@ -78,9 +79,14 @@ export async function POST(request: Request) {
   usedToday += 1; // In-memory dev guard, not a Supabase credit. Resets with dev-server restart.
   inFlight = true;
   try {
+    const savedSummary = parsed.data.useSavedData ? await readCoachUserSummary() : undefined;
+    if (parsed.data.useSavedData && !savedSummary) {
+      usedToday -= 1; // A failed data read must not consume a local generation slot.
+      return NextResponse.json({error:"Your saved data could not be loaded. Try again or turn off personalization."},{status:503,headers});
+    }
     const provider = createOllamaLocalProvider(true); // Bypass the DB quota guard ONLY in this dev route.
     const output = await provider.generate({
-      input:[{type:"text",text:coachPrompt(parsed.data.message,parsed.data.history)}],
+      input:[{type:"text",text:coachPrompt(parsed.data.message,parsed.data.history,savedSummary ?? undefined)}],
       responseSchema:coachJsonSchema,
       signal:request.signal,
     });

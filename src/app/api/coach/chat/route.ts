@@ -4,6 +4,7 @@ import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { selectRequestedAiModel } from "@/lib/ai/selected-model";
 import { aiRoutingErrorResponse } from "@/lib/ai/errors";
+import { readCoachUserSummary } from "@/lib/coach-user-context";
 
 import { coachRequestSchema, coachPrompt, coachAnswerSchema, coachJsonSchema } from "@/lib/ai/coach-prompt";
 async function handlePost(request: Request) {
@@ -15,13 +16,16 @@ async function handlePost(request: Request) {
   if (!parsed.success) return NextResponse.json({error:"Enter a short coaching question and select an available AI."},{status:400});
   const selected = await selectRequestedAiModel(parsed.data.model, 0);
   if (selected.error) return selected.error;
+  // The server, not the browser, assembles the signed-in user's RLS-scoped summary.
+  const savedSummary = parsed.data.useSavedData ? await readCoachUserSummary() : undefined;
+  if (parsed.data.useSavedData && !savedSummary) return NextResponse.json({error:"Your saved data could not be loaded. Try again or turn off personalization."},{status:503,headers:{"Cache-Control":"private, no-store"}});
   // AURA currently shares the existing 60/day refinement allowance rather than
   // allowing unaccounted generation or inventing a new quota. UI makes this explicit.
   try {
     const denied = await reserveAiUsage("refinement");
     if (denied) return denied;
     const output = await selected.provider.generate({
-      input: [{type:"text",text:coachPrompt(parsed.data.message,parsed.data.history)}],
+      input: [{type:"text",text:coachPrompt(parsed.data.message,parsed.data.history,savedSummary ?? undefined)}],
       responseSchema: coachJsonSchema,
       signal: request.signal,
     });

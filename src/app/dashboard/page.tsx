@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TodayOverview } from "@/components/today-overview";
 import { DashboardSpotlight } from "@/components/dashboard-spotlight";
+import { HealthSnapshot } from "@/components/health-snapshot";
 import { AiUsageCounter } from "@/components/ai-usage-counter";
 
 export default function DashboardPage() {
@@ -44,6 +45,8 @@ export default function DashboardPage() {
         <AiUsageCounter />
 
         <TodayOverview />
+
+        <HealthSnapshot />
 
         <section className="mt-9 grid gap-5 lg:grid-cols-3">
           <Link

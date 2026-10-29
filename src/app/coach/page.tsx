@@ -14,6 +14,7 @@ export default function CoachPage() {
   const [model, setModel] = useState<AiModelId>("gemini");
   const [statuses, setStatuses] = useState<AiModelStatus[]>([]);
   const [localAvailable, setLocalAvailable] = useState(false);
+  const [useSavedData, setUseSavedData] = useState(false);
   const [draft, setDraft] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function CoachPage() {
     setError(null);
     const history = messages.slice(-6).map(entry => ({role: entry.author === "you" ? "user" as const : "assistant" as const, text: entry.text.slice(0, 500)}));
     try {
-      const payload = {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({message, model, history})};
+      const payload = {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({message, model, history, useSavedData})};
       // Local dev has its own signed-in endpoint and in-memory throttle; never call a cloud API.
       const response = model === "ollama-local"
         ? await fetch("/api/coach/local", payload)
@@ -89,6 +90,10 @@ export default function CoachPage() {
             <select id="coach-ai-provider" value={model} onChange={event=>setModel(event.target.value as AiModelId)} className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-3 text-sm">
               {listed.map(item => <option key={item.id} value={item.id} disabled={!available.has(item.id)}>{item.name}{!available.has(item.id) ? " (unavailable)" : ""}</option>)}
             </select>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-emerald-50/40 p-3 text-sm text-slate-800">
+              <input type="checkbox" checked={useSavedData} onChange={event => setUseSavedData(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-emerald-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" />
+              <span><strong>Personalize using my saved data</strong><span className="mt-1 block text-xs leading-5 text-slate-600">Share a brief summary of my saved meals, goals, activities, and latest weight with this selected AI for my answer. Off by default. No medical records.</span></span>
+            </label>
             <label htmlFor="coach-message" className="block text-sm font-medium">Your question</label>
             <textarea id="coach-message" value={draft} rows={3} maxLength={650} onChange={e=>setDraft(e.target.value)} placeholder="e.g. Suggest a satisfying dinner with more protein" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm" />
             <button type="submit" disabled={!chosenEnabled || working || draft.trim().length < 3} className="cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{working ? "Thinking..." : "Ask AURA"}</button>
@@ -98,7 +103,7 @@ export default function CoachPage() {
         </div>
       </section>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-600">
-        <strong className="text-slate-900">Privacy and limits:</strong> This chat currently uses your typed message only. It does not read saved meals, goals, or health records. Responses are general wellness information, not medical advice. For your own data, visit <Link href="/reports" className="font-semibold underline">Daily Reports</Link> or <Link href="/goals" className="font-semibold underline">Goals</Link>.
+        <strong className="text-slate-900">Privacy and limits:</strong> Personalization is optional and off by default. When enabled, the server reads only your saved meal totals, goals, activity logs, recent food names and latest weight; it sends that brief summary to the selected model for this reply. Local Ollama stays on your computer, while cloud models receive the summary through their API. We do not read medical records. Responses are general wellness information, not medical advice. For your own data, visit <Link href="/reports" className="font-semibold underline">Daily Reports</Link> or <Link href="/goals" className="font-semibold underline">Goals</Link>.
       </div>
     </div>
   </main>;
