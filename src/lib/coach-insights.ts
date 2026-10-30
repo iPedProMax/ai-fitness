@@ -12,7 +12,10 @@ export type CoachUserSummary = {
     mealCount: number;
     activitySessions: number;
     activityMinutes: number;
+    averageCaloriesOnLoggedDays?: number | null;
+    averageProteinOnLoggedDays?: number | null;
   };
+  waterTodayMl?: number;
   goal: {
     type: "lose" | "maintain" | "gain";
     calories: number;

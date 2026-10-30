@@ -58,6 +58,19 @@ export async function readCoachUserSummary(): Promise<CoachUserSummary | null> {
     const latestWeight = weightRow && positive(weightRow.weight_kg) > 0
       ? { kg: positive(weightRow.weight_kg), date: String(weightRow.measured_on) }
       : null;
+    // Water table is optional. Missing migrations must not break AURA or the dashboard.
+    const waterResult = await supabase.from("water_entries")
+      .select("amount_ml").eq("user_id", user.id).eq("logged_on", days[days.length - 1]).limit(50);
+    const waterTodayMl = !waterResult.error
+      ? (waterResult.data ?? []).reduce((sum, item) => sum + Math.max(0, Number(item.amount_ml) || 0), 0)
+      : undefined;
+    const loggedDays = report.filter(day => day.mealCount > 0);
+    const averageCaloriesOnLoggedDays = loggedDays.length
+      ? Math.round(loggedDays.reduce((sum, day) => sum + day.calories, 0) / loggedDays.length)
+      : null;
+    const averageProteinOnLoggedDays = loggedDays.length && !loggedDays.some(day => day.protein.incomplete)
+      ? Math.round(loggedDays.reduce((sum, day) => sum + day.protein.grams, 0) / loggedDays.length * 10) / 10
+      : null;
     const activities = activitiesResult.data ?? [];
     const recentFoodNames = meals.slice(0, 5).flatMap(meal => {
       const foods = (meal.analysis_snapshot as { foods?: Array<{ name?: unknown }> } | null)?.foods;
@@ -83,7 +96,10 @@ export async function readCoachUserSummary(): Promise<CoachUserSummary | null> {
         mealCount: report.reduce((sum, day) => sum + day.mealCount, 0),
         activitySessions: activities.length,
         activityMinutes: Math.round(activities.reduce((sum, item) => sum + Math.min(720, positive(item.duration_minutes)), 0)),
+        averageCaloriesOnLoggedDays,
+        averageProteinOnLoggedDays,
       },
+      ...(waterTodayMl === undefined ? {} : { waterTodayMl }),
       goal,
       latestWeight,
       recentFoodNames,

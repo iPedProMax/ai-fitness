@@ -490,6 +490,7 @@ export default function Home() {
             What did you eat?
           </h2>
 
+          <a href="/barcode" className="mb-4 inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-600">▦ Scan barcode or search packaged foods — free</a>
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
             {providerId === "groq" || providerId === "cloudflare"
               ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "

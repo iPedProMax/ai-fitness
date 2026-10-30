@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TodayOverview } from "@/components/today-overview";
 import { DashboardSpotlight } from "@/components/dashboard-spotlight";
 import { HealthSnapshot } from "@/components/health-snapshot";
+import { WaterSummary } from "@/components/water-summary";
 import { AiUsageCounter } from "@/components/ai-usage-counter";
 
 export default function DashboardPage() {
@@ -47,6 +48,8 @@ export default function DashboardPage() {
         <TodayOverview />
 
         <HealthSnapshot />
+        <WaterSummary />
+        <div className="mt-5 flex flex-wrap gap-3"><Link href="/barcode" className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50">Scan barcode →</Link><Link href="/recipes" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Recipes &amp; favorites →</Link></div>
 
         <section className="mt-9 grid gap-5 lg:grid-cols-3">
           <Link

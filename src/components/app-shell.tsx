@@ -40,6 +40,16 @@ const navItems: NavItem[] = [
     icon: "history",
   },
   {
+    label: "Barcode & Food Search",
+    href: "/barcode",
+    icon: "scanner",
+  },
+  {
+    label: "Recipes & Favorites",
+    href: "/recipes",
+    icon: "history",
+  },
+  {
     label: "Daily Reports",
     href: "/reports",
     icon: "reports",
@@ -191,6 +201,8 @@ export function AppShell({
     pathname === "/" ||
     pathname === "/dashboard" ||
     pathname === "/meals" ||
+    pathname === "/barcode" ||
+    pathname === "/recipes" ||
     pathname === "/activities" ||
     pathname === "/reports" ||
     pathname === "/goals" ||
@@ -208,6 +220,10 @@ export function AppShell({
       ? "Dashboard"
       : pathname === "/meals"
         ? "Meal History"
+      : pathname === "/barcode"
+        ? "Barcode & Food Search"
+      : pathname === "/recipes"
+        ? "Recipes & Favorites"
         : pathname === "/activities"
           ? "Activities"
           : pathname === "/reports"

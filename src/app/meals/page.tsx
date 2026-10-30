@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { foodEmoji } from "@/lib/food-emoji";
 import { EditMealTime } from "@/components/edit-meal-time";
+import { MealQuickActions } from "@/components/meal-quick-actions";
+import { MealEditor } from "@/components/meal-editor";
 
 type MealItem = {
   id: string;
@@ -83,6 +85,7 @@ export default async function MealsPage() {
           &larr; Back to scanner
         </Link>
 
+        <a href="/recipes" className="mt-4 inline-block rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">My recipes &amp; favorites →</a>
         <header className="mt-8">
           <h1 className="text-3xl font-bold">Meal History</h1>
           <p className="mt-2 text-sm text-slate-600">
@@ -200,6 +203,8 @@ export default async function MealsPage() {
                     {meal.notes}
                   </p>
                 )}
+                <MealEditor id={meal.id} snapshot={meal.analysis_snapshot} />
+                <MealQuickActions mealId={meal.id} />
               </article>
             ))}
           </section>
