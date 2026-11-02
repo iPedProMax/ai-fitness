@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { advancedNutrientsSchema } from "./advanced-nutrients";
 
 export const weightSourceSchema =
   z.enum([
@@ -64,6 +65,9 @@ export const foodItemSchema =
 
     // Explicit local user correction, recorded in the meal analysis snapshot.
     userCorrected: z.boolean().optional(),
+
+    // Optional manual/label-recorded details, not inferred when absent.
+    advancedNutrients: advancedNutrientsSchema.optional(),
 
     // For manual logs only; omitted for fully known AI and photo values.
     // Database numeric zeros for these fields are placeholders, not known 0g.

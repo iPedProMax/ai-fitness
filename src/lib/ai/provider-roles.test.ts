@@ -9,6 +9,12 @@ describe("multi-purpose AI roles", () => {
     expect(recommendedProviders("manual")).toContain("ollama-local");
   });
   it("does not misreport text-only candidates as vision capable", () => {
-    for (const id of TEXT_SPECIALISTS) expect(aiModelCatalog.find(model=>model.id===id)?.maxImages).toBe(0);
+        for (const id of TEXT_SPECIALISTS) {
+      const model = aiModelCatalog.find(entry => entry.id === id);
+      expect(model).toBeDefined();
+      if (id === "openrouter") expect(model?.maxImages).toBe(1);
+      else if (id === "zai") expect(model?.maxImages).toBe(2);
+      else expect(model?.maxImages).toBe(0);
+    }
   });
 });

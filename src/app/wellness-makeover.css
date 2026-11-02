@@ -1,0 +1,185 @@
+/* AI Fitness — Warm Evergreen / 2026. UI only. Existing feature actions stay intact. */
+:root {
+  color-scheme: light;
+  --aura-bg: #f6f8f3;
+  --aura-ink: #16291f;
+  --aura-subtle: #718378;
+  --aura-paper: #ffffff;
+  --aura-iris: #246b4b;
+  --aura-iris-deep: #154d37;
+  --aura-line: #e3eae1;
+  --aura-raised: 0 8px 28px #254a3510;
+  --aura-pressed: none;
+  --background: var(--aura-bg);
+  --foreground: var(--aura-ink);
+  --wellness-green: #297652;
+  --ring-base: #e7efe7;
+  --wellness-cream: #f6f8f3;
+  --wellness-card: #fff;
+  --wellness-line: #e1e8df;
+  --wellness-ink: #16291f;
+  --wellness-muted: #799084;
+}
+html, body { background: var(--aura-bg) !important; color: var(--aura-ink); }
+body { font-family: "Avenir Next", "Trebuchet MS", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; }
+body::before { background: radial-gradient(ellipse 55% 45% at 98% 1%, #e1f2cf90, transparent 72%), radial-gradient(ellipse 50% 35% at 1% 100%, #fff1e470, transparent 70%) !important; }
+[class~="bg-slate-100"], [class~="bg-zinc-800"] { background: #edf4e9 !important; }
+[class~="bg-emerald-50"], [class~="bg-emerald-100"] { background: #eaf6e4 !important; }
+[class~="border-emerald-200"], [class~="border-emerald-300"] { border-color: #c9e5c2 !important; }
+[class~="bg-slate-900"], [class~="bg-emerald-500"], [class~="bg-emerald-600"] { background: linear-gradient(135deg, #26774e, #154b37) !important; color: white !important; box-shadow: 0 6px 15px #205b3930 !important; }
+:where(main,aside,header) :where(section,article,div,a,form)[class*="rounded-2xl"][class*="bg-white"],
+:where(main,aside,header) :where(section,article,div,a,form)[class*="rounded-3xl"][class*="bg-white"] { border: 1px solid #e6ece3 !important; border-radius: 21px !important; box-shadow: 0 6px 23px #285b3610 !important; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select { background-color: #fafcf8 !important; border: 1px solid #dce7d8 !important; box-shadow: none !important; color: #203529 !important; }
+input::placeholder, textarea::placeholder { color:#93a198 !important; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #8abf72 !important; outline-offset: 3px; }
+.wellness-app { background: var(--wellness-cream) !important; color: var(--wellness-ink); }
+html .aura-sidebar.wellness-sidebar { background: #142a20 !important; color: #eaf9e9 !important; box-shadow: none !important; border-right: 1px solid #264134; }
+.wellness-sidebar .wellness-brand { color: #eff8ed; }
+html .wellness-sidebar .aura-brand { background: #c9f078 !important; color: #173221 !important; border-radius: 14px !important; box-shadow: none !important; }
+.wellness-sidebar .wellness-nav-link { color: #a9c1b1; }
+.wellness-sidebar .wellness-nav-link:hover { color: white; background: #264233; }
+.wellness-sidebar .wellness-nav-link[aria-current="page"] { background: #cbf184 !important; color: #193422 !important; border: 0; box-shadow: none !important; }
+.wellness-sidebar-note { background: #254435; border: 1px solid #3b6247; color: #e8f6e6; }
+html .aura-header.wellness-header { background: #f8faf5ef !important; color: #183025 !important; border-color: #e3e9e0; box-shadow: none !important; backdrop-filter: blur(12px); }
+.wellness-menu-button { background: white; border-color: #dce8d9; color: #193422; }
+.wellness-mobile-menu { background: #f8faf5; border-color: #e0e8df; }
+.wellness-mobile-menu .wellness-nav-link { color: #2f5040; }
+.wellness-mobile-menu .wellness-nav-link[aria-current="page"] { background: #d3f3a1; color: #203825; }
+.wellness-bottom-nav { background: #fffdf9f5; border-color: #e0e8df; backdrop-filter: blur(14px); color: #869588; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.wellness-bottom-active { color: #1d6545; }
+.wellness-dashboard { color: var(--wellness-ink); }
+.wellness-eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 850; color: #719580; }
+.wellness-dot { color: #65ab6d; }
+.wellness-greeting { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 4px 0 18px; }
+.wellness-greeting h1 { font-size: clamp(1.75rem, 3.5vw, 2.65rem); font-weight: 850; letter-spacing: -.055em; line-height: 1.12; max-width: 650px; margin-top: 9px; }
+.wellness-greeting-sub { margin-top: 8px; font-size: 14px; color: var(--wellness-muted); }
+.wellness-primary-cta, .wellness-send { display: inline-flex; justify-content: center; align-items: center; padding: 12px 18px; min-height: 44px; border-radius: 13px; background: #17392a !important; color: #fff !important; font-weight: 800; text-decoration: none; white-space: nowrap; }
+.wellness-primary-cta:hover, .wellness-send:hover:not(:disabled) { background: #2b6546 !important; }
+.wellness-toolbar { display:flex; gap: 10px; align-items:center; justify-content:space-between; margin-bottom: 16px; flex-wrap:wrap; }
+.wellness-segment { display:flex; padding:4px; border:1px solid #e0e8dd; background:#fff; border-radius:13px; }
+.wellness-segment button { border:0; background:transparent; border-radius:10px; color:#789183; font-weight:700; padding:8px 12px; font-size:12px; }
+.wellness-segment button[aria-pressed="true"] { background:#d1f09d; color:#1b3a2a; }
+.wellness-refresh { background:transparent; color:#367456; border:0; font-size:12px; font-weight:700; }
+.wellness-notice { margin-bottom: 16px; background:#fff; border:1px solid #dce7dc; border-radius:13px; padding:12px; font-size:13px; }
+.wellness-primary-grid { display:grid; grid-template-columns: minmax(0, 1.2fr) minmax(270px, .85fr); gap:16px; }
+.wellness-card { background: var(--wellness-card); border:1px solid var(--wellness-line); border-radius:22px; padding:24px; box-shadow:0 6px 26px #28573c09; min-width:0; }
+.wellness-card-heading { display:flex; align-items:start; justify-content:space-between; gap:12px; }
+.wellness-card-heading strong { display:block; font-size:14px; font-weight:850; letter-spacing:-.02em; }
+.wellness-card-heading small { display:block; color:var(--wellness-muted); font-size:11px; margin-top:5px; }
+.wellness-tag { font-size:10px; font-weight:850; color:#56845d; background:#f0f6e9; border-radius:9px; padding:8px; white-space:nowrap; }
+.wellness-calorie-card { background: radial-gradient(ellipse at 96% 3%,#eefaD8 0%,#fff 52%) !important; }
+.wellness-cal-content { display:grid; grid-template-columns:minmax(0,1fr) minmax(110px,165px); align-items:center; gap:12px; margin-top:18px; }
+.wellness-kcal { font-size:clamp(2.15rem,4.1vw,3.4rem); font-weight:900; letter-spacing:-.07em; line-height:1.1; white-space:nowrap; }
+.wellness-kcal span { font-size:13px; font-weight:600; color:#8b9e90; letter-spacing:0; margin-left:8px; }
+.wellness-remaining { font-size:12px; color:#718777; margin:12px 0 22px; }
+.wellness-remaining strong { color:#268252; }
+.wellness-remaining a { color:#246b4b; text-decoration:underline; }
+.wellness-lime-cta { display:inline-flex; align-items:center; gap:14px; background:#c8f078 !important; color:#193627 !important; padding:11px 15px; border-radius:12px; font-size:12px; font-weight:850; }
+.wellness-lime-cta:hover { background:#b8e762 !important; }
+.wellness-cal-ring { position:relative; aspect-ratio:1; max-width:165px; display:grid; place-items:center; }
+.wellness-cal-ring svg { position:absolute; width:100%; height:100%; }
+.wellness-cal-ring > span { text-align:center; }
+.wellness-cal-ring strong { font-size:clamp(24px,3vw,32px); letter-spacing:-.06em; display:block; }
+.wellness-cal-ring small { color:#92a196; font-size:10px; }
+.wellness-macro-line { margin-top:21px; }
+.wellness-macro-line > div:first-child { display:flex; justify-content:space-between; gap:12px; align-items:center; font-size:12px; }
+.wellness-macro-line strong { font-weight:850; }
+.wellness-macro-line span { text-align:right; color:#5f7567; }
+.wellness-bar { margin-top:10px; height:8px; border-radius:10px; background:#edf1eb; overflow:hidden; }
+.wellness-bar > span { display:block; height:100%; border-radius:10px; }
+.wellness-bar-mint { background:#67b4a0; } .wellness-bar-blue { background:#8c9df3; } .wellness-bar-peach { background:#f3ae83; }
+.wellness-macro-footnote { margin-top:14px; font-size:10px; color:#8b9f91; line-height:1.5; }
+.wellness-section-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:26px 2px 14px; }
+.wellness-section-heading h2 { font-size:18px; font-weight:850; letter-spacing:-.045em; }
+.wellness-section-heading h2 span { color:#7b9b84; }
+.wellness-section-heading small { font-size:11px; color:#849589; }
+.wellness-quick-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.wellness-quick { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; text-align:center; border-radius:18px; background:#fff; border:1px solid #e5ebe2; min-height:116px; padding:13px 4px; color:#21382a !important; transition:transform .16s, box-shadow .16s; }
+.wellness-quick:hover { transform:translateY(-2px); box-shadow:0 10px 24px #254b321a; }
+.wellness-quick-icon { width:45px; height:45px; border-radius:15px; display:grid; place-items:center; font-size:22px; margin-bottom:3px; }
+.wellness-quick-icon.lime { background:#e5f6cb; } .wellness-quick-icon.blue { background:#e5f0ff; } .wellness-quick-icon.peach { background:#fff0dc; } .wellness-quick-icon.sky { background:#e8edff; }
+.wellness-quick strong { font-size:12px; font-weight:850; } .wellness-quick small { font-size:10px; color:#899b8b; }
+.wellness-meals-card { margin-top:20px; }
+.wellness-meal-row { display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid #edf1ec; }
+.wellness-meal-row:last-child { border-bottom:none; }
+.wellness-meal-emoji { flex:none; display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:#f4eeda; font-size:23px; }
+.wellness-meal-row strong { font-size:12px; font-weight:850; } .wellness-meal-row small { color:#94a399; font-size:11px; }
+.wellness-meal-kcal { font-size:12px; font-weight:850; white-space:nowrap; }
+.wellness-green-link { color:#39865b; font-size:12px; font-weight:850; }
+.wellness-empty-meals { padding:25px 0 5px; font-size:13px; color:#718579; }
+.wellness-activity-note { padding:9px 3px; font-size:11px; color:#718579; }
+.wellness-lower-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:stretch; gap:16px; }
+.wellness-lower-grid > div > .wellness-water-card { height:100%; }
+.wellness-water-card { margin-top:0; }
+.wellness-water-total { font-size:27px; font-weight:850; letter-spacing:-.05em; margin:17px 0 12px; }
+.wellness-water-total span { font-size:12px; font-weight:500; letter-spacing:0; color:#94a59a; }
+.wellness-water-cups { display:flex; gap:6px; } .wellness-water-cups span { height:32px; flex:1; border-radius:8px 8px 10px 10px; border:1px solid #d6e5f8; background:#f2f8ff; }
+.wellness-water-cups span.filled { background:linear-gradient(#a9d5ff,#73b1ef); }
+.wellness-water-caption { margin-top:11px; font-size:10px; line-height:1.45; color:#8da197; }
+.wellness-water-actions { margin-top:15px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.wellness-water-actions button { padding:9px 10px; border:0; border-radius:10px; color:#326faa; background:#edf4ff; font-size:11px; font-weight:850; }
+.wellness-water-actions input { width:72px; padding:8px !important; font-size:11px; }
+.wellness-insight-card { position:relative; overflow:hidden; background:#e8f1df; border:1px solid #d9e9cc; border-radius:22px; padding:23px; min-height:220px; display:flex; flex-direction:column; justify-content:space-between; }
+.wellness-insight-label { font-size:10px; letter-spacing:.11em; font-weight:900; color:#497750; position:relative; z-index:1; }
+.wellness-insight-card p { font-weight:750; line-height:1.6; font-size:14px; max-width:390px; margin:14px 0; position:relative; z-index:1; }
+.wellness-insight-card a { color:#246e45; font-size:12px; font-weight:850; position:relative; z-index:1; }
+.wellness-insight-plant { position:absolute; right:-11px; top:15px; font-size:115px; color:#d5e8c5; }
+.wellness-more-links a { padding:11px 14px; border:1px solid #d7e8d3; border-radius:12px; background:#fff; color:#2e7250; font-weight:750; font-size:12px; }
+.wellness-logfood .wellness-log-header { max-width:900px; margin:0 auto 20px; }
+.wellness-logfood .wellness-log-header h2 { font-size:clamp(26px,3vw,36px); font-weight:900; letter-spacing:-.055em; line-height:1.15; }
+.wellness-logfood .wellness-log-header p { color:#778d7d; }
+.wellness-logfood .wellness-log-modes { max-width:900px; margin-left:auto; margin-right:auto; background:#eef4e9 !important; border:1px solid #dfe8d9; border-radius:16px !important; }
+.wellness-logfood .wellness-log-modes button[aria-pressed="true"] { color:#fff !important; background:#19643f !important; box-shadow:0 5px 14px #205e3c28 !important; }
+.wellness-logfood .wellness-log-modes button { min-height:48px; }
+.wellness-chat-root { position:fixed; z-index:50; bottom:24px; right:24px; }
+.wellness-chat-fab { position:relative; display:flex; align-items:center; justify-content:center; width:62px; height:62px; border-radius:50%; background:linear-gradient(145deg,#3ca34e,#076044); color:white; border:4px solid #eef8e9; box-shadow:0 12px 24px #1c7c4690; }
+.wellness-chat-fab:hover { transform:translateY(-2px); box-shadow:0 14px 30px #1c7c46a8; }
+.wellness-chat-spark { position:absolute; top:-5px; right:-4px; font-size:18px; color:#c8ffb1; }
+.wellness-chat-panel { width:min(365px,calc(100vw - 26px)); max-height:min(73vh,640px); overflow:hidden; display:flex; flex-direction:column; margin-bottom:13px; border:1px solid #cfe4cc; border-radius:22px; background:#fff; box-shadow:0 20px 60px #173a2b40; color:#1a3326; }
+.wellness-chat-header { padding:15px 17px; background:#1b6040; color:white; display:flex; justify-content:space-between; align-items:start; }
+.wellness-chat-close { border:0; padding:3px 8px; border-radius:8px; color:#fff; background:#ffffff25; }
+.wellness-chat-messages { display:flex; flex-direction:column; gap:10px; padding:15px; min-height:105px; overflow-y:auto; max-height:220px; }
+.wellness-chat-bubble { border-radius:15px; padding:10px 12px; white-space:pre-wrap; line-height:1.5; font-size:12px; max-width:94%; }
+.wellness-from-aura { background:#eef7e6; align-self:start; color:#2a5039; }
+.wellness-from-user { background:#196643; color:white; align-self:end; }
+.wellness-chat-controls { padding:14px; border-top:1px solid #e3eadd; overflow:auto; }
+.wellness-free-tip { padding:8px 11px; background:#e9f3e0; color:#21613d; font-size:11px; font-weight:800; border:0; border-radius:10px; margin-bottom:12px; }
+@media(max-width:900px){ .wellness-primary-grid { grid-template-columns:1fr; } }
+@media(max-width:640px){ .wellness-app .wellness-dashboard { padding-bottom:35px; } .wellness-lower-grid { grid-template-columns:1fr; } .wellness-greeting { align-items:start; } .wellness-greeting h1 { font-size:28px; max-width:280px; } .wellness-primary-cta { font-size:11px; padding:10px; white-space:normal; max-width:100px; text-align:center; } .wellness-card { padding:18px; border-radius:19px; } .wellness-quick-grid { gap:7px; } .wellness-quick { padding:8px 2px; min-height:100px; } .wellness-quick-icon { width:39px; height:39px; font-size:18px; } .wellness-quick strong { font-size:10px; } .wellness-quick small { font-size:9px; } .wellness-chat-root { right:13px; bottom:85px; } .wellness-chat-fab { width:54px; height:54px; } .wellness-chat-panel { max-height: min(70vh,530px); } }
+@media(max-width:380px){ .wellness-greeting h1 { font-size:24px; } .wellness-cal-content { grid-template-columns:minmax(0,1fr) 108px; } .wellness-kcal { font-size:32px; } .wellness-card-heading strong { font-size:12px; } }
+@media(prefers-reduced-motion:reduce){ .wellness-chat-fab:hover,.wellness-quick:hover { transform:none; } }
+/* Explicit evergreen dark mode instead of the old purple/nightfall palette. */
+html[data-aura-theme="dark"] {
+  --aura-bg:#13251e; --aura-ink:#f0f7ed; --aura-subtle:#b0c5b4; --aura-paper:#21382d; --aura-line:#365443;
+  --aura-iris:#bbefa4; --aura-iris-deep:#8ac98f;
+  --wellness-cream:#13251e; --wellness-card:#21382d; --wellness-line:#365443; --wellness-ink:#f0f7ed; --wellness-muted:#b0c5b4; --ring-base:#3a5645; --wellness-green:#7cd08b;
+  background:#13251e !important;
+}
+html[data-aura-theme="dark"] body, html[data-aura-theme="dark"] .wellness-app { background:#13251e !important; color:#f0f7ed; }
+html[data-aura-theme="dark"] .aura-header.wellness-header { background:#1c3529ef !important; color:#f1f9ee !important; border-color:#355342; }
+html[data-aura-theme="dark"] .wellness-mobile-menu, html[data-aura-theme="dark"] .wellness-bottom-nav { background:#1c3529 !important; color:#c5d4c4; border-color:#335441; }
+html[data-aura-theme="dark"] .wellness-card, html[data-aura-theme="dark"] .wellness-segment, html[data-aura-theme="dark"] .wellness-quick, html[data-aura-theme="dark"] .wellness-chat-panel { background:#21382d !important; color:#f0f7ed !important; border-color:#3d5946; }
+html[data-aura-theme="dark"] .wellness-calorie-card { background:radial-gradient(ellipse at 95% 5%,#30503a,#21382d 65%) !important; }
+html[data-aura-theme="dark"] .wellness-macro-line span, html[data-aura-theme="dark"] .wellness-greeting-sub { color:#b2c6b5; }
+html[data-aura-theme="dark"] .wellness-tag, html[data-aura-theme="dark"] .wellness-free-tip { background:#33533c; color:#d6f7c7; }
+html[data-aura-theme="dark"] .wellness-bar { background:#365142; }
+html[data-aura-theme="dark"] .wellness-quick { color:#f4f9ee !important; }
+html[data-aura-theme="dark"] .wellness-insight-card { background:#2a4535; border-color:#425c41; color:#ecf7e8; }
+html[data-aura-theme="dark"] .wellness-insight-card p { color:#ecf7e8; }
+html[data-aura-theme="dark"] .wellness-insight-card a { color:#b9f4b4; }
+html[data-aura-theme="dark"] .wellness-insight-plant { color:#38563e; }
+html[data-aura-theme="dark"] .wellness-water-cups span { border-color:#507396; background:#243d50; }
+html[data-aura-theme="dark"] .wellness-meal-row { border-color:#365140; }
+html[data-aura-theme="dark"] .wellness-chat-controls { border-color:#395641; }
+html[data-aura-theme="dark"] .wellness-from-aura { background:#355640; color:#ecf9e7; }
+html[data-aura-theme="dark"] .wellness-logfood .wellness-log-modes { background:#304535 !important; border-color:#41664c; }
+html[data-aura-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select) { background:#182c22 !important; border-color:#4a654f !important; color:#edf8ed !important; box-shadow:none !important; }
+html[data-aura-theme="dark"] [class~="bg-slate-900"], html[data-aura-theme="dark"] [class~="bg-emerald-600"],html[data-aura-theme="dark"] [class~="bg-emerald-500"] { background:linear-gradient(135deg,#237a53,#19573b) !important; }
+html[data-aura-theme="dark"] [class~="bg-emerald-50"],html[data-aura-theme="dark"] [class~="bg-emerald-100"] { background:#31513b !important; }
+html[data-aura-theme="dark"] [class~="text-emerald-700"],html[data-aura-theme="dark"] [class~="text-emerald-600"] { color:#a6e49e !important; }
+html[data-aura-theme="dark"] [class~="bg-slate-50"],html[data-aura-theme="dark"] [class~="bg-zinc-950"] { background:#13251e !important; }
+html[data-aura-theme="dark"] [class~="bg-white"],html[data-aura-theme="dark"] [class~="bg-zinc-900"],html[data-aura-theme="dark"] [class~="bg-white/95"] { background:#21382d !important; }
+html[data-aura-theme="dark"] [class~="bg-slate-100"],html[data-aura-theme="dark"] [class~="bg-zinc-800"] { background:#2b4435 !important; }
+html[data-aura-theme="dark"] [class~="border-slate-200"],html[data-aura-theme="dark"] [class~="border-slate-300"] { border-color:#365443 !important; }
+html[data-aura-theme="dark"] [class~="text-slate-900"],html[data-aura-theme="dark"] [class~="text-slate-800"] { color:#f0f7ed !important; }
+html[data-aura-theme="dark"] [class~="text-slate-600"],html[data-aura-theme="dark"] [class~="text-slate-500"],html[data-aura-theme="dark"] [class~="text-slate-400"] { color:#b5c9b8 !important; }

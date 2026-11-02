@@ -14,7 +14,7 @@ async function handlePost(request: Request) {
   try { json = await request.json(); } catch { return NextResponse.json({error:"Invalid JSON body."},{status:400}); }
   const parsed = coachRequestSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({error:"Enter a short coaching question and select an available AI."},{status:400});
-  const selected = await selectRequestedAiModel(parsed.data.model, 0);
+  const selected = await selectRequestedAiModel(parsed.data.model, 0, "text");
   if (selected.error) return selected.error;
   // The server, not the browser, assembles the signed-in user's RLS-scoped summary.
   const savedSummary = parsed.data.useSavedData ? await readCoachUserSummary() : undefined;
@@ -31,11 +31,30 @@ async function handlePost(request: Request) {
     });
     if (!output.outputText) return NextResponse.json({error:"AI returned an empty coaching reply."},{status:502});
     const cleaned = output.outputText.trim().replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
-    const answer = coachAnswerSchema.parse(JSON.parse(cleaned));
+    // A 200 from the provider does not guarantee the expected JSON shape.
+    // Never expose raw provider output or the user's private saved summary.
+    const answer = (() => {
+      try { return coachAnswerSchema.parse(JSON.parse(cleaned)); }
+      catch { return null; }
+    })();
+    if (!answer) return NextResponse.json({
+      error: "The selected AI replied, but its coaching response format was invalid.",
+      code: "AI_COACH_REPLY_FORMAT",
+    }, { status: 502, headers: { "Cache-Control": "private, no-store" } });
     return NextResponse.json({reply:answer.reply,model:selected.provider.id},{headers:{"Cache-Control":"private, no-store"}});
   } catch (error) {
     const routing = aiRoutingErrorResponse(error);
     if (routing) return routing;
+    // Safe, actionable provider rejection statuses. No API response bodies,
+    // credentials, prompts, meal history, or SDK errors are sent to the client.
+    const upstreamStatus = error && typeof error === "object" && "status" in error &&
+      typeof error.status === "number" ? error.status : null;
+    if (upstreamStatus !== null && [400, 401, 403, 404, 422].includes(upstreamStatus)) {
+      return NextResponse.json({
+        error: `The selected AI provider rejected the request (HTTP ${upstreamStatus}).`,
+        code: "AI_COACH_PROVIDER_REJECTED",
+      }, { status: 502, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({error:"Coach could not generate a response. Try later or use the free topic cards."},{status:502});
   }
 }

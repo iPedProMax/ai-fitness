@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {auth,generate,transport} = vi.hoisted(()=>({auth:vi.fn(),generate:vi.fn(),transport:vi.fn()}));
 vi.mock("@/lib/food-api-auth",()=>({requireFoodApiAuth:auth}));
-vi.mock("@/lib/ai/providers/ollama-local",()=>({
-  OLLAMA_LOCAL_MODEL:"qwen2.5vl:3b",
-  createOllamaLocalProvider:()=>({generate}),
+vi.mock("@/lib/ai/providers/ollama-text-only",()=>({
+  OLLAMA_TEXT_MODEL:"qwen2.5:3b",
+  createOllamaTextProvider:()=>({generate}),
 }));
 import { GET, POST } from "./route";
 const url = "http://localhost:3000/api/coach/local";
@@ -16,7 +16,7 @@ beforeEach(()=>{
   vi.stubEnv("AI_ENABLE_OLLAMA_LOCAL","true");
   auth.mockReset().mockResolvedValue(null);
   generate.mockReset().mockResolvedValue({outputText:'{"reply":"Try eggs and rice with tomatoes."}'});
-  transport.mockReset().mockResolvedValue(Response.json({models:[{name:"qwen2.5vl:3b"}]}));
+  transport.mockReset().mockResolvedValue(Response.json({models:[{name:"qwen2.5:3b"}]}));
   vi.stubGlobal("fetch",transport);
 });
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});

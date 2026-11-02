@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { AiRoutingError } from "../errors";
 import type { AiProvider, AiGenerationRequest } from "../types";
+import { mistralManualNutritionSchema } from "../mistral-manual-nutrition-schema";
 
 // Experimental adapter only: the public scanner has NOT activated this provider.
 // This is a FIXED model allowlist; never take a model identifier from user input.
@@ -27,10 +28,40 @@ export function buildMistralBody(request: AiGenerationRequest): string {
         !/^[A-Za-z0-9+/]+={0,2}$/.test(part.data)) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
     return { type: "image_url", image_url: `data:${part.mimeType};base64,${part.data}` };
   });
+  // Phase U8B: schema-constrained text coaching replies.
+  // Mistral JSON object mode guarantees JSON syntax, not the `reply` key.
+  // Only the Coach schema gets strict output; all other JSON requests, including
+  // food estimates, retain their existing response_format and output budget.
+  const required = request.responseSchema.required;
+  const isCoachReply = images.length === 0 && request.responseSchema.type === "object" &&
+    Array.isArray(required) && required.length === 1 && required[0] === "reply";
+  // Phase U9: strict Mistral Text AI nutrition schema.
+  // Trigger ONLY on the known full food-analysis schema, without images.
+  // The server still validates every number and refuses severe inconsistencies.
+  const isManualNutrition = images.length === 0 && request.responseSchema.type === "object" &&
+    Array.isArray(required) && required.length === 4 &&
+    ["foods", "totalCalories", "notes", "clarifications"].every(key => required.includes(key));
+  const responseFormat = isCoachReply ? {
+    type: "json_schema",
+    json_schema: {
+      name: "coach_reply",
+      strict: true,
+      schema: {
+        type: "object", properties: { reply: { type: "string" } },
+        required: ["reply"], additionalProperties: false,
+      },
+    },
+  } : isManualNutrition ? {
+    type: "json_schema",
+    json_schema: { name: "manual_food_nutrition", strict: true, schema: mistralManualNutritionSchema },
+  } : { type: "json_object" };
   const body = JSON.stringify({
     model: MISTRAL_MODEL,
-    messages: [{ role: "user", content }],
-    response_format: { type: "json_object" },
+    // Phase U8: match verified text-only Mistral payload; preserve image content arrays.
+    messages: [{ role: "user", content: images.length === 0
+      ? content.map(part => part.type === "text" ? part.text : "").join("\n\n")
+      : content }],
+    response_format: responseFormat,
     temperature: 0,
     max_tokens: 1300,
   });

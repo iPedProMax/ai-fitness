@@ -6,6 +6,6 @@ describe("food correction wiring", () => {
   it("applies corrections to the same analysis object used by AddMealButton", () => {
     const page = readFileSync(join(process.cwd(), "src/app/page.tsx"), "utf8");
     expect(page).toContain("<FoodCorrectionPanel analysis={analysis} onApply={setAnalysis} />");
-    expect(page).toContain("<AddMealButton analysis={analysis} />");
+    expect(page).toContain('<AddMealButton analysis={analysis} photoFiles={entryMode === "photo" ? images : []} />');
   });
 });

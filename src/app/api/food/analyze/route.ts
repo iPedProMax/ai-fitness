@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
+import { geminiLabelFoodAnalysisJsonSchema, keepGeminiLabelNutrients, GEMINI_LABEL_NUTRIENT_GUIDANCE } from "@/lib/ai/gemini-label-nutrients";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
 import { normalizeFoodDescription, formatFoodDescriptionContext } from "@/lib/ai/food-description";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
@@ -407,7 +408,7 @@ async function handlePost(
       return NextResponse.json({ error: "Food description must be text and at most 400 characters." }, { status: 400 });
     }
 
-    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
+    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length, "vision");
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
     selectedProviderId = provider.id;
@@ -570,6 +571,9 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
 
     // One optional, unverified user hint is sent in the SAME request to the selected AI.
     // Cloudflare extracts this tagged part into its Moondream vision question.
+    if (provider.id === "gemini") {
+      input.push({ type: "text", text: GEMINI_LABEL_NUTRIENT_GUIDANCE });
+    }
     const descriptionContext = formatFoodDescriptionContext(description);
     if (descriptionContext) input.push({ type: "text", text: descriptionContext });
 
@@ -597,7 +601,7 @@ Associate it with other images only when the connection is reasonably supported.
 
     const resultFromProvider = await provider.generate({
       input,
-      responseSchema: foodAnalysisJsonSchema,
+      responseSchema: provider.id === "gemini" ? geminiLabelFoodAnalysisJsonSchema : foodAnalysisJsonSchema,
       signal: request.signal,
     });
 
@@ -619,10 +623,9 @@ Associate it with other images only when the connection is reasonably supported.
     const parsed =
       JSON.parse(outputText);
 
-    const parsedResult =
-      foodAnalysisSchema.parse(
-        parsed
-      );
+    const parsedResult = provider.id === "gemini"
+      ? keepGeminiLabelNutrients(foodAnalysisSchema.parse(parsed))
+      : foodAnalysisSchema.parse(parsed);
 
     const providerNormalized = (provider.id === "groq" || provider.id === "cloudflare")
       ? normalizeSingleFoodProvider(parsedResult)

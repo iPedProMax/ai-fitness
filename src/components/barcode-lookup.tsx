@@ -13,8 +13,9 @@ import {AiProviderPicker,type AiProviderChoice} from "@/components/ai-provider-p
 import {getProviderMaxImages} from "@/lib/ai/provider-image-limits";
 import type {FoodAnalysis} from "@/lib/food-analysis";
 
-type NutritionKey="calories"|"protein"|"carbs"|"fat";
+type NutritionKey="calories"|"protein"|"carbs"|"fat"|"fiberG"|"sugarG"|"addedSugarG"|"sodiumMg"|"cholesterolMg"|"potassiumMg"|"calciumMg"|"ironMg"|"vitaminDMcg";
 const fields= [["Calories","calories","kcal"],["Protein","protein","g"],["Carbs","carbs","g"],["Fat","fat","g"]] as const;
+const advancedFields= [["Fiber","fiberG","g"],["Total sugar","sugarG","g"],["Sodium","sodiumMg","mg"],["Cholesterol","cholesterolMg","mg"],["Potassium","potassiumMg","mg"],["Calcium","calciumMg","mg"],["Iron","ironMg","mg"],["Vitamin D","vitaminDMcg","mcg"]] as const;
 const emptyManual:ManualFoodInput={name:"",grams:"",calories:"",protein:"",carbs:"",fat:""};
 export function BarcodeLookup(){
   const [barcode,setBarcode]=useState("");const [search,setSearch]=useState("");
@@ -34,6 +35,7 @@ export function BarcodeLookup(){
   const [analyzingLabel,setAnalyzingLabel]=useState(false);
   const [labelNotice,setLabelNotice]=useState("");
   const [aiSuggested,setAiSuggested]=useState(false);
+  const [labelAdvanced,setLabelAdvanced]=useState<{grams:number;values:NonNullable<FoodAnalysis["foods"][number]["advancedNutrients"]>}|null>(null);
   const [decodingImage,setDecodingImage]=useState(false);
   const [imagePreview,setImagePreview]=useState<string|null>(null);
   const [imageLabel,setImageLabel]=useState("");
@@ -164,14 +166,20 @@ export function BarcodeLookup(){
     }
   }
   function choose(food:CatalogFood,personal=false){
-    setSelected(food);setFromMyFoods(personal);
+    setSelected(food);setFromMyFoods(personal);setLabelAdvanced(null);
     setGrams(String(suggestedServings(food)[0]?.grams??100));
     setCorrections({});setAnalysis(null);setMessage("");setManualOpen(false);setAiSuggested(false);
   }
   function preview(){
     if(!selected)return;
     try{
-      const input={...nutritionForGrams(selected,Number(grams)),...corrections};
+      const scaledLabel: Record<string,string>={};
+      if(labelAdvanced&&labelAdvanced.grams>0){
+        for(const [key,val] of Object.entries(labelAdvanced.values)){
+          if(typeof val==="number"&&Number.isFinite(val))scaledLabel[key]=String(Math.round(val*Number(grams)/labelAdvanced.grams*100)/100);
+        }
+      }
+      const input={...nutritionForGrams(selected,Number(grams)),...scaledLabel,...corrections};
       const basic=makeManualFoodAnalysis([input]);
       setAnalysis({...basic,notes:fromMyFoods?`My Foods user-reviewed nutrition for barcode ${selected.barcode}; not independently verified.`:`Open Food Facts community-contributed nutrition, barcode ${selected.barcode}; serving reviewed by user. Product data: ODbL, openfoodfacts.org.`});setMessage("");
     }catch(issue){setAnalysis(null);setMessage(issue instanceof Error?issue.message:"Check serving size.");}
@@ -221,8 +229,9 @@ export function BarcodeLookup(){
       const result=await analyzeFood({images:labelPhotos,description:`Packaged ${name} ${brand}. Barcode ${barcode}. Use visible nutrition label and portion, don't invent missing values.`.slice(0,390)},{modelId:aiProvider});
       if(result.foods.length!==1){setLabelNotice("AI returned multiple foods or no food. Try a clear label photo for just one product, or enter the label manually.");return;}
       const suggested=result.foods[0];
+      const advancedFromLabel=Object.fromEntries(Object.entries(suggested.advancedNutrients??{}).map(([key,value])=>[key,String(value)]));
       const suggestedGrams=suggested.estimatedGrams>0&&suggested.estimatedGrams<=2000?suggested.estimatedGrams:null;
-      const asString=(key:NutritionKey)=>{
+      const asString=(key:"calories"|"protein"|"carbs"|"fat")=>{
         const macroUnknown=key!=="calories"&&suggested.unknownMacros?.includes(key);
         return macroUnknown?"":String(suggested[key]);
       };
@@ -230,12 +239,14 @@ export function BarcodeLookup(){
         // The AI suggestion is a REVIEW DRAFT, never saved automatically.
         if(suggestedGrams!==null)setGrams(String(suggestedGrams));
         setCorrections({calories:asString("calories"),protein:asString("protein"),carbs:asString("carbs"),fat:asString("fat")});
+        setLabelAdvanced(suggestedGrams!==null&&suggested.advancedNutrients?{grams:suggestedGrams,values:suggested.advancedNutrients}:null);
         setAnalysis(null);
       }else{
         setManualValues({
           name: suggested.name.trim().slice(0,120)||name,
           grams:suggestedGrams===null?"":String(suggestedGrams),
           calories:asString("calories"),protein:asString("protein"),carbs:asString("carbs"),fat:asString("fat"),
+          ...advancedFromLabel,
         });
         setManualOpen(true);setManualAnalysis(null);
       }
@@ -309,6 +320,7 @@ export function BarcodeLookup(){
         <label className="block text-sm">Product name<input required value={manualValues.name} onChange={e=>{setManualValues(v=>({...v,name:e.target.value}));setManualAnalysis(null);}} maxLength={120} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3" placeholder="e.g. canned tuna"/></label>
         <label className="block text-sm">Amount eaten in grams (optional)<input value={manualValues.grams} onChange={e=>{setManualValues(v=>({...v,grams:e.target.value}));setManualAnalysis(null);}} type="number" min="0" max="2000" step="any" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3"/></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{fields.map(([label,key,unit])=><label key={key} className="text-xs font-medium">{label} ({unit})<input type="number" step="any" min="0" value={manualValues[key]} onChange={e=>{setManualValues(v=>({...v,[key]:e.target.value}));setManualAnalysis(null);}} placeholder="Unknown" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"/></label>)}</div>
+        <details className="rounded-xl border border-slate-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold">Additional nutrients (optional)</summary><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">{advancedFields.map(([label,key,unit])=><label key={key} className="text-xs font-medium">{label} ({unit})<input type="number" min="0" step="any" placeholder="Unknown" value={manualValues[key]??""} onChange={e=>{setManualValues(v=>({...v,[key]:e.target.value}));setManualAnalysis(null);}} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"/></label>)}</div></details>
         <p className="text-xs text-slate-600">Enter the values for the amount you ate, not the package's per-100 g numbers unless you ate 100 g. Calories are required unless all three macros are known.</p>
         <button type="submit" className="cursor-pointer rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white">Review manual food</button>
         {manualAnalysis&&<div className="space-y-2"><strong>{Math.round(manualAnalysis.totalCalories)} kcal</strong><AddMealButton analysis={manualAnalysis}/>
@@ -338,6 +350,7 @@ export function BarcodeLookup(){
       <div className="flex flex-wrap gap-2">{choices.map(choice=><button key={choice.label} type="button" onClick={()=>{setGrams(String(choice.grams));setCorrections({});setAnalysis(null);}} aria-pressed={Number(grams)===choice.grams} className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold ${Number(grams)===choice.grams?"border-emerald-500 bg-emerald-50 text-emerald-800":"border-slate-200"}`}>{choice.label}</button>)}</div>
       <label className="block text-sm font-semibold">Actual amount eaten (grams)<input type="number" min="1" max="2000" step="0.1" value={grams} onChange={e=>{setGrams(e.target.value);setCorrections({});setAnalysis(null);}} className="mt-1 block w-36 rounded-lg border border-slate-300 p-3"/></label>
       <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">{fields.map(([label,key,unit])=><label key={key} className="rounded-xl bg-slate-50 p-3"><span className="block text-xs text-slate-500">{label} ({unit})</span><input type="number" step="any" min="0" aria-label={`${label} for selected serving`} value={corrections[key]??portion?.[key]??""} onChange={e=>{setCorrections(v=>({...v,[key]:e.target.value}));setAnalysis(null);}} placeholder="Unknown" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 font-bold"/></label>)}</div>
+      <details className="rounded-xl border border-slate-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold">Additional nutrients for this serving</summary><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{advancedFields.map(([label,key,unit])=><label key={key} className="rounded-lg bg-slate-50 p-2 text-xs">{label} ({unit})<input type="number" min="0" step="any" placeholder="Unknown" value={corrections[key]??(portion as Partial<Record<NutritionKey,string>> | null)?.[key]??""} onChange={e=>{setCorrections(v=>({...v,[key]:e.target.value}));setAnalysis(null);}} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"/></label>)}</div></details>
       <p className="text-xs text-slate-600">Unknown values stay blank. Community nutrition can be missing or incorrect. Correct it using your package label before saving.</p>
       <button type="button" onClick={preview} className="cursor-pointer rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white">Review meal for saving</button>
       {analysis&&<div className="space-y-2 rounded-xl bg-emerald-50 p-4"><p className="text-sm font-semibold">Ready: {Math.round(analysis.totalCalories)} kcal</p><AddMealButton analysis={analysis}/>

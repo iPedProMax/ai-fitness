@@ -1,6 +1,11 @@
+import { ActivityHistoryPanel } from "@/components/activity-history-panel";
 import Link from "next/link";
+import { ActivityWeekly } from "@/components/activity-weekly";
+import { WatchCsvImport } from "@/components/watch-csv-import";
+import { recentManilaDays } from "@/lib/weekly-report";
 import { redirect } from "next/navigation";
 import { ActivityForm } from "@/components/activity-form";
+import { ActivityWeeklyOverview } from "@/components/activity-weekly-overview";
 import { DeleteActivityButton } from "@/components/delete-activity-button";
 import { ACTIVITY_LABELS, manilaDayKey, type ActivityType, type CalorieSource } from "@/lib/activity";
 import { createClient } from "@/lib/supabase/server";
@@ -43,6 +48,15 @@ export default async function ActivitiesPage() {
     .order("performed_at", { ascending: false })
     .limit(100);
   const activities = (data ?? []) as SavedActivity[];
+  const weekDays = recentManilaDays();
+  const weeklyResult = await supabase.from("activities")
+    .select("performed_at,duration_minutes,calories_burned")
+    .eq("user_id",user.id).gte("performed_at",`${weekDays[0]}T00:00:00+08:00`)
+    .order("performed_at",{ascending:false}).limit(500);
+  const weeklyDays = weekDays.map(date => {
+    const matching = (weeklyResult.data ?? []).filter(row => manilaDayKey(new Date(row.performed_at)) === date);
+    return {date,logs:matching.length,minutes:matching.reduce((sum,row)=>sum+Number(row.duration_minutes),0),calories:matching.reduce((sum,row)=>sum+Number(row.calories_burned ?? 0),0)};
+  });
   const today = manilaDayKey(new Date());
   const todayActivities = activities.filter((item) => manilaDayKey(new Date(item.performed_at)) === today);
   const todayMinutes = todayActivities.reduce((sum, item) => sum + Number(item.duration_minutes), 0);
@@ -77,43 +91,12 @@ export default async function ActivitiesPage() {
         <Link href="/settings" className="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline">Change exercise display settings →</Link>
         {preferenceError && <p role="alert" className="mt-3 block text-xs text-red-700">Could not load display preferences. Check the user preferences migration in Supabase.</p>}
 
+        {!weeklyResult.error ? <ActivityWeekly days={weeklyDays} showExerciseCalories={showExerciseCalories} truncated={(weeklyResult.data ?? []).length >= 500} /> : <p role="alert" className="mt-4 text-sm text-red-700">Could not load your weekly activity summary.</p>}
+        <WatchCsvImport />
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+          <ActivityWeeklyOverview activities={activities} now={new Date()} showExerciseCalories={showExerciseCalories} truncated={activities.length >= 100} loadFailed={Boolean(error)} />
           <ActivityForm showExerciseCalories={showExerciseCalories} />
-          <section aria-labelledby="activity-history-title" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 id="activity-history-title" className="text-xl font-bold">Recent activities</h2>
-                <p className="mt-1 text-xs text-slate-500">Your most recent 100 logs · Philippine time</p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{activities.length} saved</span>
-            </div>
-            {error ? (
-              <div role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">Could not load your activities. Apply the Supabase migration first or try again.</div>
-            ) : activities.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center">
-                <div className="text-3xl">🏋️</div>
-                <p className="mt-3 font-semibold">No activities saved yet</p>
-                <p className="mt-1 text-sm text-slate-500">Your first workout will appear here.</p>
-              </div>
-            ) : (
-              <ul className="mt-5 divide-y divide-slate-100">
-                {activities.map((item) => (
-                  <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-900">{ACTIVITY_LABELS[item.activity_type] ?? "Activity"}</p>
-                      <p className="mt-1 text-xs text-slate-500">{dateLabel(item.performed_at)} · {item.duration_minutes} min · {item.intensity}</p>
-                      {showExerciseCalories && <p className="mt-2 text-sm font-bold text-emerald-700">
-                        {item.calories_burned === null ? "Calories not provided" : `${Math.round(Number(item.calories_burned)).toLocaleString()} kcal`}
-                        <span className="ml-2 text-xs font-normal text-slate-500">{item.calorie_source === "estimated" ? "estimated" : item.calorie_source === "reported" ? "from your entry" : ""}</span>
-                      </p>}
-                      {item.notes && <p className="mt-2 break-words text-xs leading-5 text-slate-600">{item.notes}</p>}
-                    </div>
-                    <DeleteActivityButton id={item.id} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <ActivityHistoryPanel activities={activities} showExerciseCalories={showExerciseCalories} loadFailed={Boolean(error)} nowIso={new Date().toISOString()} />
         </div>
       </div>
     </main>

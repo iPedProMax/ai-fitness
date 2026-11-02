@@ -79,11 +79,17 @@ describe("single Gemini model admission", () => {
     },
   );
 
-  it("rejects OpenRouter photo requests as text-only before provider dispatch or credits", async () => {
-    const response = await analyze(imageRequest("openrouter", 1));
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
-    expect(provider).not.toHaveBeenCalled();
+  it("allows OpenRouter one photo and rejects a second before credits", async () => {
+    const visionProvider = {
+      ...defaultProvider, id: "openrouter",
+      capabilities: { text: true, vision: true, maxImages: 1, structuredJson: true },
+    };
+    provider.mockReturnValue(visionProvider);
+    expect(await selectRequestedAiModel("openrouter", 1)).toMatchObject({ provider: visionProvider });
+    const rejection = await selectRequestedAiModel("openrouter", 2);
+    expect(rejection.error?.status).toBe(422);
+    expect(await rejection.error?.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(provider).toHaveBeenCalledOnce();
     expect(reserve).not.toHaveBeenCalled();
   });
   it("allows an explicitly available text-only provider for text tasks", async () => {
@@ -133,11 +139,13 @@ describe("single Gemini model admission", () => {
     expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
     expect(reserve).not.toHaveBeenCalled();
   });
-  it("allows Mistral one photo but rejects two before accounting", async () => {
-    provider.mockReturnValue({ ...defaultProvider, id: "mistral", capabilities: { ...defaultProvider.capabilities, maxImages: 1 } });
-    expect(await selectRequestedAiModel("mistral", 1)).toMatchObject({ provider: { id: "mistral" } });
-    expect((await selectRequestedAiModel("mistral", 2)).error?.status).toBe(422);
-    const response = await analyze(imageRequest("mistral", 2));
+  it("rejects Mistral photo uploads before accounting but supports text", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "mistral", capabilities: { ...defaultProvider.capabilities, maxImages: 0, vision: false, text: true } });
+    expect(await selectRequestedAiModel("mistral", 0)).toMatchObject({ provider: { id: "mistral" } });
+    for (const count of [1, 2]) {
+      expect((await selectRequestedAiModel("mistral", count)).error?.status).toBe(422);
+    }
+    const response = await analyze(imageRequest("mistral", 1));
     expect(response.status).toBe(422);
     expect(reserve).not.toHaveBeenCalled();
   });

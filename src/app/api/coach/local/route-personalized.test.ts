@@ -4,9 +4,9 @@ const { auth, generate, loadSummary } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/food-api-auth", () => ({ requireFoodApiAuth: auth }));
 vi.mock("@/lib/coach-user-context", () => ({ readCoachUserSummary: loadSummary }));
-vi.mock("@/lib/ai/providers/ollama-local", () => ({
-  OLLAMA_LOCAL_MODEL: "qwen2.5vl:3b",
-  createOllamaLocalProvider: () => ({ generate }),
+vi.mock("@/lib/ai/providers/ollama-text-only", () => ({
+  OLLAMA_TEXT_MODEL: "qwen2.5:3b",
+  createOllamaTextProvider: () => ({ generate }),
 }));
 import { POST } from "./route";
 const summary = {

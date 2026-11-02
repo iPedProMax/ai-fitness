@@ -1,17 +1,18 @@
 "use client";
+import { useAuraConversation } from "@/lib/aura-conversation";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { coachReply, coachTopics, type CoachTopic } from "@/lib/coach-guidance";
 import { aiModelCatalog, type AiModelId, type AiModelStatus } from "@/lib/ai/model-catalog";
-import { recommendedProviders } from "@/lib/ai/provider-roles";
+import { SHARED_TEXT_AI_PROVIDERS } from "@/lib/ai/shared-text-roster";
 import { submitAiRequest } from "@/lib/ai-submission";
 
 type Message = { id: number; author: "coach" | "you"; text: string };
 export default function CoachPage() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useAuraConversation<Message[]>([
     { id: 0, author: "coach", text: "Welcome! Pick a free guidance topic below, or ask an available AI model a question. Local Ollama uses no cloud AI credits; other chat models use your daily refinement allowance." },
   ]);
-  const [model, setModel] = useState<AiModelId>("gemini");
+  const [model, setModel] = useState<AiModelId>("cerebras");
   const [statuses, setStatuses] = useState<AiModelStatus[]>([]);
   const [localAvailable, setLocalAvailable] = useState(false);
   const [useSavedData, setUseSavedData] = useState(false);
@@ -41,10 +42,12 @@ export default function CoachPage() {
   const available = new Set(statuses.filter(item => item.enabled && item.text).map(item => item.id));
   // Same behavior as the scanner: the original Gemini choice stays visible when status lookup fails;
   // authenticated backend admission remains authoritative and will reject unavailable providers.
-  if (statuses.length === 0) available.add("gemini");
+  // No scanner-model fallback when text provider status is unavailable.
   if (localAvailable) available.add("ollama-local");
-  const chosenEnabled = available.has(model);
-  const listed = recommendedProviders("coach").map(id => aiModelCatalog.find(item => item.id === id)).filter((item): item is (typeof aiModelCatalog)[number] => Boolean(item));
+  const chosenEnabled = available.has(model) || (model === "ollama-local" && process.env.NODE_ENV === "development");
+  const coachRoster = new Set(["gemini", "groq", "cloudflare", "ollama-local"]);
+  /* // Khalories Phase U6: provider selector parity: no filtered list; render shared roster directly. */
+  const listed = SHARED_TEXT_AI_PROVIDERS.filter(id => coachRoster.has(id) && (id === model || id === "gemini" || available.has(id))).map(id => aiModelCatalog.find(item => item.id === id)).filter((item): item is (typeof aiModelCatalog)[number] => Boolean(item));
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = draft.trim();
@@ -71,24 +74,29 @@ export default function CoachPage() {
   return <main className="min-h-[calc(100vh-76px)] bg-slate-50 px-4 py-8 text-slate-900 sm:px-6">
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-2"><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Your wellness companion</p>
-        <h1 className="text-3xl font-bold">AI Coach</h1>
+        <h1 className="text-3xl font-bold">Coach FONZ</h1>
         <p className="max-w-xl text-sm text-slate-600">Ask about meal planning, basic nutrition, exercise and fitness habits. Preset guidance stays free without an AI call.</p>
       </header>
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Coach conversation">
         <div className="border-b border-slate-200 px-5 py-4 sm:px-7"><div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 font-bold text-white">AF</div>
-          <div><h2 className="font-semibold">AURA Coach</h2><p className="text-xs text-slate-500">Purpose-based AI Â· Explicit provider selection Â· No paid fallback</p></div>
+          <div><h2 className="font-semibold"><span aria-hidden="true" className="aura-ai-icon-animated mr-1">✦</span>Coach FONZ</h2><p className="text-xs text-slate-500">Purpose-based AI · Explicit provider selection · No paid fallback</p></div>
         </div></div>
         <div className="flex min-h-72 flex-col gap-4 p-5 sm:p-7" role="log" aria-live="polite" aria-relevant="additions text">
           {messages.map(message => <div key={message.id} className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.author === "you" ? "self-end bg-emerald-600 text-white" : "self-start border border-slate-200 bg-slate-50 text-slate-900"}`}>
             {message.text}</div>)}
         </div>
-        <div className="border-t border-slate-200 p-5 sm:p-7"><p className="mb-3 text-sm font-semibold">Free built-in guidance â€” no credits used</p>
+        <div className="border-t border-slate-200 p-5 sm:p-7"><p className="mb-3 text-sm font-semibold">Quick tips (no AI, no credits)</p>
           <div className="grid gap-2 sm:grid-cols-2">{coachTopics.map(topic => <button key={topic.id} type="button" onClick={() => choose(topic.id)} className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-900 transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">{topic.label}</button>)}</div>
           <form onSubmit={send} className="mt-5 space-y-3 border-t border-slate-200 pt-5">
             <label htmlFor="coach-ai-provider" className="block text-sm font-semibold">Ask an AI provider</label>
             <select id="coach-ai-provider" value={model} onChange={event=>setModel(event.target.value as AiModelId)} className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-3 text-sm">
-              {listed.map(item => <option key={item.id} value={item.id} disabled={!available.has(item.id)}>{item.name}{!available.has(item.id) ? " (unavailable)" : ""}</option>)}
+              {SHARED_TEXT_AI_PROVIDERS.map(id => {
+                const item = aiModelCatalog.find(entry => entry.id === id);
+                if (!item) return null;
+                const enabled = available.has(id) || (id === "ollama-local" && process.env.NODE_ENV === "development");
+                return <option key={id} value={id} disabled={!enabled}>{item.name}{!enabled ? " (unavailable)" : ""}</option>;
+              })}
             </select>
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-emerald-50/40 p-3 text-sm text-slate-800">
               <input type="checkbox" checked={useSavedData} onChange={event => setUseSavedData(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-emerald-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" />
@@ -96,7 +104,7 @@ export default function CoachPage() {
             </label>
             <label htmlFor="coach-message" className="block text-sm font-medium">Your question</label>
             <textarea id="coach-message" value={draft} rows={3} maxLength={650} onChange={e=>setDraft(e.target.value)} placeholder="e.g. Suggest a satisfying dinner with more protein" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm" />
-            <button type="submit" disabled={!chosenEnabled || working || draft.trim().length < 3} className="cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{working ? "Thinking..." : "Ask AURA"}</button>
+            <button type="submit" disabled={!chosenEnabled || working || draft.trim().length < 3} className="cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{working ? "Thinking..." : "Ask Coach FONZ"}</button>
             <p className="text-xs text-slate-500">Local Ollama uses 0 cloud AI credits and has a separate 30/day development-process limit (resets on server restart). Other AI providers use your 60/day refinement allowance. Avoid sensitive details; no automatic fallback.</p>
             {error && <p role="alert" className="rounded-xl border border-red-200 p-3 text-sm text-red-700">{error}</p>}
           </form>

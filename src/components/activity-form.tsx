@@ -1,4 +1,5 @@
 "use client";
+import { WORKOUT_PRESETS } from "@/lib/activity-history";
 
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -83,6 +84,21 @@ export function ActivityForm({ showExerciseCalories = false }: { showExerciseCal
         <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">Free · 0 AI credits</span>
       </div>
 
+      <div role="group" aria-label="Quick workout presets" className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-bold text-slate-900">Quick workout presets</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">Fill type, intensity, and duration. You can edit everything. Choosing a preset clears an earlier watch-calorie value.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {WORKOUT_PRESETS.map(preset => (
+            <button key={preset.id} type="button" disabled={pending} onClick={() => {
+              setActivityType(preset.activityType); setIntensity(preset.intensity);
+              setMinutes(String(preset.durationMinutes)); setReportedCalories("");
+              setFeedback(null); setSuccess(false);
+            }} className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelClass}>
           Exercise type

@@ -2,7 +2,7 @@ import "server-only";
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
-import { createOllamaLocalProvider, OLLAMA_LOCAL_MODEL } from "@/lib/ai/providers/ollama-local";
+import { createOllamaTextProvider, OLLAMA_TEXT_MODEL } from "@/lib/ai/providers/ollama-text-only";
 import { coachRequestSchema, coachPrompt, coachAnswerSchema, coachJsonSchema } from "@/lib/ai/coach-prompt";
 import { readCoachUserSummary } from "@/lib/coach-user-context";
 
@@ -36,7 +36,7 @@ async function modelRunning(): Promise<boolean> {
     if (!response.ok) return false;
     const raw: unknown = await response.json();
     if (!raw || typeof raw !== "object" || !("models" in raw) || !Array.isArray(raw.models)) return false;
-    return raw.models.some(item => item && typeof item === "object" && "name" in item && item.name === OLLAMA_LOCAL_MODEL);
+    return raw.models.some(item => item && typeof item === "object" && "name" in item && item.name === OLLAMA_TEXT_MODEL);
   } catch { return false; }
 }
 
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       usedToday -= 1; // A failed data read must not consume a local generation slot.
       return NextResponse.json({error:"Your saved data could not be loaded. Try again or turn off personalization."},{status:503,headers});
     }
-    const provider = createOllamaLocalProvider(true); // Bypass the DB quota guard ONLY in this dev route.
+    const provider = createOllamaTextProvider(true); // Bypass the DB quota guard ONLY in this dev route.
     const output = await provider.generate({
       input:[{type:"text",text:coachPrompt(parsed.data.message,parsed.data.history,savedSummary ?? undefined)}],
       responseSchema:coachJsonSchema,

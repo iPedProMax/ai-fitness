@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
 import type { FormEvent } from "react";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { analyzeFoodText } from "@/lib/analyze-food-text";
+import type { AiModelStatus } from "@/lib/ai/model-catalog";
+import { isTextAiReady } from "@/lib/ai/text-readiness";
 import { makeManualFoodAnalysis, type ManualFoodInput } from "@/lib/manual-food";
 import { foodEmoji } from "@/lib/food-emoji";
 import { matchAiReportedConfidence } from "@/lib/manual-ai-confidence";
+import { findNutritionReferenceWarnings } from "@/lib/nutrition-reference-review";
+import { findFoodContextWarnings } from "@/lib/food-context-review";
 import {
   canSubmitPortionAnswers, findPortionQuestions, makeClarifiedPortionPrompt,
   type PortionAnswer, type PortionQuestion,
@@ -45,6 +49,16 @@ export function fillMissingFromAi(
       protein: original.protein.trim() || toTextNumber(food.protein),
       carbs: original.carbs.trim() || toTextNumber(food.carbs),
       fat: original.fat.trim() || toTextNumber(food.fat),
+      ...(original.fiberG?.trim() ? { fiberG: original.fiberG } : food.advancedNutrients?.fiberG !== undefined ? { fiberG: toTextNumber(food.advancedNutrients.fiberG) } : {}),
+      ...(original.sugarG?.trim() ? { sugarG: original.sugarG } : food.advancedNutrients?.sugarG !== undefined ? { sugarG: toTextNumber(food.advancedNutrients.sugarG) } : {}),
+      ...(original.saturatedFatG?.trim() ? { saturatedFatG: original.saturatedFatG } : {}),
+      ...(original.sodiumMg?.trim() ? { sodiumMg: original.sodiumMg } : food.advancedNutrients?.sodiumMg !== undefined ? { sodiumMg: toTextNumber(food.advancedNutrients.sodiumMg) } : {}),
+      ...(original.addedSugarG?.trim() ? { addedSugarG: original.addedSugarG } : food.advancedNutrients?.addedSugarG !== undefined ? { addedSugarG: toTextNumber(food.advancedNutrients.addedSugarG) } : {}),
+      ...(original.cholesterolMg?.trim() ? { cholesterolMg: original.cholesterolMg } : food.advancedNutrients?.cholesterolMg !== undefined ? { cholesterolMg: toTextNumber(food.advancedNutrients.cholesterolMg) } : {}),
+      ...(original.potassiumMg?.trim() ? { potassiumMg: original.potassiumMg } : food.advancedNutrients?.potassiumMg !== undefined ? { potassiumMg: toTextNumber(food.advancedNutrients.potassiumMg) } : {}),
+      ...(original.calciumMg?.trim() ? { calciumMg: original.calciumMg } : food.advancedNutrients?.calciumMg !== undefined ? { calciumMg: toTextNumber(food.advancedNutrients.calciumMg) } : {}),
+      ...(original.ironMg?.trim() ? { ironMg: original.ironMg } : food.advancedNutrients?.ironMg !== undefined ? { ironMg: toTextNumber(food.advancedNutrients.ironMg) } : {}),
+      ...(original.vitaminDMcg?.trim() ? { vitaminDMcg: original.vitaminDMcg } : food.advancedNutrients?.vitaminDMcg !== undefined ? { vitaminDMcg: toTextNumber(food.advancedNutrients.vitaminDMcg) } : {}),
     };
   });
   // Never silently discard a user's manually entered food or known values.
@@ -69,6 +83,35 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   const [pendingPortions, setPendingPortions] = useState<{ prompt: string; questions: PortionQuestion[] } | null>(null);
   const [portionAnswers, setPortionAnswers] = useState<Record<string, PortionAnswer>>({});
   const [error, setError] = useState<string | null>(null);
+  const [providerStatuses, setProviderStatuses] = useState<AiModelStatus[] | null>(null);
+  const [localOllamaReady, setLocalOllamaReady] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/coach/local", { signal: controller.signal, cache: "no-store" })
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setLocalOllamaReady(data?.available === true); })
+      .catch(() => { if (!controller.signal.aborted) setLocalOllamaReady(false); });
+    return () => controller.abort();
+  }, []);
+  const aiProviderReady = providerId === "ollama-local"
+    ? localOllamaReady : isTextAiReady(providerStatuses, providerId);
+
+  // The browser includes the signed-in session. 401, network errors or missing
+  // status data fail closed without affecting unlimited ordinary manual entry.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/ai/models", { signal: controller.signal, cache: "no-store" })
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!controller.signal.aborted) {
+          setProviderStatuses(Array.isArray(data?.models) ? data.models : []);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProviderStatuses([]);
+      });
+    return () => controller.abort();
+  }, []);
 
   function updateItem(index: number, key: keyof ManualFoodInput, value: string) {
     setPendingPortions(null);
@@ -91,6 +134,10 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   }
 
   function handleAi() {
+    if (!aiProviderReady) {
+      setError("The selected Text AI is unavailable. You can still enter and log nutrition manually.");
+      return;
+    }
     if (working) return;
     const prompt = description.trim() || items.map((item) =>
       [item.name.trim(), item.grams.trim() ? `${item.grams.trim()} g` : ""].filter(Boolean).join(", ")
@@ -123,6 +170,11 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   }
 
   async function runAiEstimate(prompt: string) {
+    // Recheck at the final dispatch point (after local portion questions).
+    if (!aiProviderReady) {
+      setError("The selected Text AI is unavailable. No AI request was sent.");
+      return;
+    }
     setWorking(true);
     setError(null);
     try {
@@ -152,6 +204,10 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   const knownProtein = items.reduce((sum, food) => sum + numberOrZero(food.protein), 0);
   const knownCarbs = items.reduce((sum, food) => sum + numberOrZero(food.carbs), 0);
   const knownFat = items.reduce((sum, food) => sum + numberOrZero(food.fat), 0);
+  // Phase U10A: non-blocking reference nutrition review. No corrections are applied.
+  const referenceWarnings = aiAssisted ? findNutritionReferenceWarnings(items) : [];
+  // Phase U10B: context review is advisory only; do not alter entered nutrition.
+  const contextWarnings = aiAssisted ? findFoodContextWarnings(items, description) : [];
   // Preview the exact text context to be sent before reserving an AI credit.
   let portionPreview = "";
   let portionPreviewError: string | null = null;
@@ -177,11 +233,16 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
             placeholder="e.g. 200 g grilled bangus with one cup of rice"
             className={inputClass} />
         </label>
-        <button type="button" onClick={handleAi} disabled={working}
+        <button type="button" onClick={handleAi} disabled={working || !aiProviderReady}
           className="w-full rounded-xl border border-emerald-400 bg-white px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60">
           {working ? "Estimating..." : "✨ Estimate nutrition with AI"}
         </button>
         <p className="text-xs text-slate-500">AI only runs when you press the button. Your existing typed values won't be overwritten.</p>
+        {!aiProviderReady && (
+          <p role="status" className="text-xs font-medium text-amber-800">
+            Text AI is currently unavailable. You can still add foods and review your manual nutrition entries without AI.
+          </p>
+        )}
         {pendingPortions && (
           <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Clarify food portions">
             <div>
@@ -247,7 +308,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
               </details>
             )}
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={working || !portionPreview}
+              <button type="button" disabled={working || !portionPreview || !aiProviderReady}
                 onClick={handleConfirmedPortions} className="cursor-pointer rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 Continue to AI estimate (one analysis)
               </button>
@@ -291,6 +352,27 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
                 </label>
               ))}
             </div>
+            <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+              <summary className="cursor-pointer text-xs font-semibold text-emerald-700">Optional advanced nutrients (from a label or known values)</summary>
+              <p className="mt-2 text-xs text-slate-500">Enter only values you know for this portion. Blank means Unknown; AI Estimate may suggest unverified nutrient amounts. User-entered values take priority. Added sugar is included in total sugar.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {([
+                  ["fiberG", "Fiber (g)"], ["sugarG", "Sugar (g)"],
+                  ["sodiumMg", "Sodium (mg)"],
+                  ["cholesterolMg", "Cholesterol (mg)"],
+                  ["potassiumMg", "Potassium (mg)"],
+                  ["calciumMg", "Calcium (mg)"],
+                  ["ironMg", "Iron (mg)"],
+                  ["vitaminDMcg", "Vitamin D (mcg)"],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="text-xs font-medium text-slate-600">{label}
+                    <input type="number" min="0" max={key.endsWith("Mg") ? 100000 : 1000} step="any"
+                      value={item[key] ?? ""} onChange={event => updateItem(index, key, event.target.value)}
+                      placeholder="Unknown" className={inputClass} />
+                  </label>
+                ))}
+              </div>
+            </details>
             {items.length > 1 && <button type="button" className="mt-3 text-xs font-semibold text-red-600 hover:underline" onClick={() => { onReset(); setItems((current) => current.filter((_, i) => i !== index)); setModelConfidences(current => current.filter((_, i) => i !== index)); }}>Remove item</button>}
           </fieldset>
         ))}
@@ -308,6 +390,24 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
               <div className="rounded-xl bg-white p-2"><span className="block font-bold text-slate-900">{knownFat.toFixed(1)}g</span>Fat*</div>
             </div>
             <p className="mt-2 text-xs text-slate-500">*Totals of provided values only; blank macros remain unknown.</p>
+            {contextWarnings.length > 0 && (
+              <details className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+                <summary className="cursor-pointer font-semibold">Portion and preparation checks ({contextWarnings.length})</summary>
+                <ul className="mt-2 list-disc space-y-1 pl-4">
+                  {contextWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
+                </ul>
+                <p className="mt-2">Confirm your serving details and review the estimate before saving. Nothing is changed automatically.</p>
+              </details>
+            )}
+            {referenceWarnings.length > 0 && (
+              <div role="status" aria-label="Nutrition reference review" className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-950">
+                <p className="font-bold">Check these AI estimates before saving</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4">
+                  {referenceWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
+                </ul>
+                <p className="mt-2">References describe typical foods; recipes and water content vary. Nothing is changed automatically.</p>
+              </div>
+            )}
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
               {modelConfidences.some(value => value !== null) ? (
                 <>

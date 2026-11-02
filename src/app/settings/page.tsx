@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReplayTourButton } from "@/components/replay-tour-button";
 import { redirect } from "next/navigation";
 import { ExerciseDisplaySettings } from "@/components/exercise-display-settings";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
         <Link href="/dashboard" className="text-sm font-semibold text-emerald-700 hover:underline">← Back to dashboard</Link>
         <p className="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Make AI Fitness yours</p>
         <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Settings</h1>
+        <ReplayTourButton />
         <p className="mt-2 text-sm text-slate-600">Choose what you want to focus on. These settings are saved to your account.</p>
 
         {error ? (

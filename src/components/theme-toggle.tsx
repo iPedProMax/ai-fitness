@@ -1,48 +1,70 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 
 type Appearance = "light" | "dark" | "system";
-const key = "ai-fitness-appearance";
-function applyAppearance(value: Appearance) {
-  const dark = value === "dark" ||
-    (value === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.setAttribute("data-aura-theme", dark ? "dark" : "light");
-}
-function AppearanceIcon({ value }: { value: Appearance }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
-    {value === "light" ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></> :
-    value === "dark" ? <path d="M20.2 15.7A8.5 8.5 0 0 1 8.3 3.8 8.5 8.5 0 1 0 20.2 15.7Z" /> :
-    <><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8m-4-4v4m0-18v14"/></>}
-  </svg>;
-}
+const STORAGE_KEY = "ai-fitness-appearance";
+const SYSTEM_DARK = "(prefers-color-scheme: dark)";
+
+/** The switch respects an existing System preference until the user clicks it. */
 export function ThemeToggle() {
   const [appearance, setAppearance] = useState<Appearance>("system");
+  const [systemDark, setSystemDark] = useState(false);
+  const preferenceRef = useRef<Appearance>("system");
+  const isDark = appearance === "dark" || (appearance === "system" && systemDark);
+
   useEffect(() => {
-    let stored: Appearance = "system";
+    const media = window.matchMedia(SYSTEM_DARK);
+    let saved: Appearance = "system";
     try {
-      const found = window.localStorage.getItem(key);
-      if (found === "light" || found === "dark" || found === "system") stored = found;
-    } catch { /* private browsing */ }
-    setAppearance(stored);
-    applyAppearance(stored);
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => applyAppearance(stored);
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+      const value = window.localStorage.getItem(STORAGE_KEY);
+      if (value === "light" || value === "dark" || value === "system") saved = value;
+    } catch { /* Storage can be unavailable in private browsing. */ }
+    preferenceRef.current = saved;
+    setAppearance(saved);
+    setSystemDark(media.matches);
+    document.documentElement.setAttribute("data-aura-theme", saved === "dark" || (saved === "system" && media.matches) ? "dark" : "light");
+    const onSystemChange = () => {
+      setSystemDark(media.matches);
+      if (preferenceRef.current === "system") {
+        document.documentElement.setAttribute("data-aura-theme", media.matches ? "dark" : "light");
+      }
+    };
+    media.addEventListener("change", onSystemChange);
+    return () => media.removeEventListener("change", onSystemChange);
   }, []);
+
+
+  function toggle() {
+    const next: Appearance = isDark ? "light" : "dark";
+    preferenceRef.current = next;
+    setAppearance(next);
+    try { window.localStorage.setItem(STORAGE_KEY, next); }
+    catch { /* Switch still works when storage is blocked. */ }
+    document.documentElement.setAttribute("data-aura-theme", next);
+  }
+
   return (
-    <label className="aura-theme-control" title="Appearance">
-      <AppearanceIcon value={appearance} />
-      <select aria-label="Appearance" value={appearance} onChange={(event) => {
-        const next = event.target.value as Appearance;
-        setAppearance(next);
-        try { window.localStorage.setItem(key, next); } catch { /* private browsing */ }
-        applyAppearance(next);
-      }}>
-        <option value="system">System</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </label>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label="Dark mode"
+      title={`${appearance === "system" ? "Following system" : isDark ? "Dark mode" : "Light mode"} · Click to switch to ${isDark ? "light" : "dark"} mode`}
+      onClick={toggle}
+      className={`khalories-appearance-switch${isDark ? " khalories-appearance-switch--dark" : ""}`}
+    >
+      <span className="khalories-appearance-switch__rays" aria-hidden="true">✦</span>
+      <span className="khalories-appearance-switch__stars" aria-hidden="true">✦</span>
+      <span className="khalories-appearance-switch__thumb" aria-hidden="true">
+        <svg className="khalories-appearance-switch__sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+        </svg>
+        <svg className="khalories-appearance-switch__moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.25 15.3A8.8 8.8 0 0 1 8.7 3.75 8.8 8.8 0 1 0 20.25 15.3Z" />
+        </svg>
+      </span>
+    </button>
   );
 }

@@ -7,6 +7,16 @@ export type ManualFoodInput = {
   protein: string;
   carbs: string;
   fat: string;
+  fiberG?: string;
+  sugarG?: string;
+  saturatedFatG?: string;
+  addedSugarG?: string;
+  cholesterolMg?: string;
+  potassiumMg?: string;
+  calciumMg?: string;
+  ironMg?: string;
+  vitaminDMcg?: string;
+  sodiumMg?: string;
 };
 
 type Macro = "protein" | "carbs" | "fat";
@@ -51,6 +61,25 @@ export function makeManualFoodAnalysis(
       }
       calories = Math.round((protein * 4 + carbs * 4 + fat * 9) * 10) / 10;
     }
+    const advancedFields = [
+      ["fiberG", "Fiber"], ["sugarG", "Sugar"],
+      ["saturatedFatG", "Saturated fat"], ["sodiumMg", "Sodium"],
+      ["addedSugarG", "Added sugar"],
+      ["cholesterolMg", "Cholesterol"],
+      ["potassiumMg", "Potassium"],
+      ["calciumMg", "Calcium"],
+      ["ironMg", "Iron"],
+      ["vitaminDMcg", "Vitamin D"],
+    ] as const;
+    const advancedNutrients: Record<string, number> = {};
+    for (const [key, label] of advancedFields) {
+      const text = item[key];
+      if (text === undefined || text.trim() === "") continue;
+      const number = parseNumber(text, label);
+      const limit = key.endsWith("Mg") ? 100000 : 1000;
+      if (number === null || number > limit) throw new Error(label + " must be a valid non-negative value of at most " + limit + ".");
+      advancedNutrients[key] = number;
+    }
     const unknownMacros: Macro[] = [
       ...(protein === null ? ["protein" as const] : []),
       ...(carbs === null ? ["carbs" as const] : []),
@@ -69,6 +98,7 @@ export function makeManualFoodAnalysis(
       carbs: carbs ?? 0,
       fat: fat ?? 0,
       ...(unknownMacros.length ? { unknownMacros } : {}),
+      ...(Object.keys(advancedNutrients).length ? { advancedNutrients } : {}),
       // Numeric 1 remains a legacy schema placeholder for user-entered data.
       // The explicit source must be consulted before displaying any percentage.
       confidence: hasReported ? reported : 1,

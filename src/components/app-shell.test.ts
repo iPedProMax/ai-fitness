@@ -43,7 +43,7 @@ describe("AI Fitness application shell", () => {
   });
 
   it("links to protected reports, goals and settings pages", () => {
-    expect(shell).toContain('label: "Daily Reports"');
+    expect(shell).toContain('label: "Reports"');
     expect(shell).toContain('href: "/reports"');
     expect(shell).toContain('href: "/goals"');
     expect(shell).toContain('label: "Settings"');

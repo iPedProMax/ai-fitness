@@ -21,9 +21,12 @@ describe("Account-based exercise visibility", () => {
   it("uses the signed-in user's preference on the dashboard and Activity page", () => {
     expect(summary).toContain('.from("user_preferences")');
     expect(summary).toContain('.eq("user_id", authData.user.id)');
-    expect(summary).toContain('state.exercise.status === "ready"');
+    expect(summary).toContain('ready?.exercise.status === "ready"');
     expect(page).toContain('.from("user_preferences")');
-    expect(page).toContain('{showExerciseCalories && <p');
+    expect(page).toContain('<ActivityHistoryPanel activities={activities} showExerciseCalories={showExerciseCalories}');
+    const historyPanel = readFileSync(new URL('./activity-history-panel.tsx', import.meta.url), 'utf8');
+    expect(historyPanel).toMatch(/\{showExerciseCalories\s*&&\s*\(\s*<p\b/);
+    expect(historyPanel).toContain('item.calories_burned');
     expect(form).toContain('{showExerciseCalories && <div');
   });
   it("protects the settings route", () => {

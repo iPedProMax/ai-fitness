@@ -113,7 +113,9 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "mistral" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "ollama-local" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
-  if (["openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(id) && imageCount !== 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "openrouter" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "zai" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (["siliconflow", "huggingface", "cerebras"].includes(id) && imageCount !== 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");

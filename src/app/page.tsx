@@ -10,6 +10,8 @@ import { AddMealButton } from "@/components/add-meal-button";
 import { FoodCorrectionPanel } from "@/components/food-correction-panel";
 import { LogFoodPanel } from "@/components/log-food-panel";
 import { AiProviderPicker } from "@/components/ai-provider-picker";
+import { BarcodeLookup } from "@/components/barcode-lookup";
+import { SavedFoodPanel } from "@/components/saved-food-panel";
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
 import { selectMealImages } from "@/lib/meal-image-selection";
 import { getProviderMaxImages } from "@/lib/ai/provider-image-limits";
@@ -29,6 +31,8 @@ import {
 } from "@/lib/brand-clarification";
 import { analyzeFood } from "@/lib/analyze-food";
 import type { FoodAnalysis } from "@/lib/food-analysis";
+import { AdvancedNutrientsSummary } from "@/components/advanced-nutrients-summary";
+import { MealAdvancedNutrientsSummary } from "@/components/meal-advanced-nutrients-summary";
 import { refineFoodAnalysis } from "@/lib/refine-food-analysis";
 import { resolveLocalClarification } from "@/lib/local-clarification-resolver";
 
@@ -89,8 +93,25 @@ function ImageThumbnail({
 }
 
 export default function Home() {
-  const [entryMode, setEntryMode] = useState<"photo" | "manual">("photo");
-  const [providerId, setProviderId] = useState<AiProviderChoice>("gemini");
+  const [entryMode, setEntryMode] = useState<"photo" | "manual" | "barcode" | "saved">("photo");
+  useEffect(() => {
+    // /?mode=barcode and /?mode=manual are stable, shareable quick-log URLs.
+    const syncFromUrl = () => {
+      const requested = new URLSearchParams(window.location.search).get("mode");
+      if (requested === "photo" || requested === "manual" || requested === "barcode" || requested === "saved") setEntryMode(requested);
+    };
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+  // Independent selections: swapping modes never overwrites the other mode's AI.
+  const [photoProviderId, setPhotoProviderId] = useState<AiProviderChoice>("gemini");
+  const [textProviderId, setTextProviderId] = useState<AiProviderChoice>("cerebras");
+  const providerId = entryMode === "photo" ? photoProviderId : textProviderId;
+  const setProviderId = (next: AiProviderChoice) => {
+    if (entryMode === "photo") setPhotoProviderId(next);
+    else setTextProviderId(next);
+  };
   const [photoDescription, setPhotoDescription] = useState("");
   const [
     images,
@@ -165,7 +186,7 @@ export default function Home() {
 
   const hasImages =
     images.length > 0;
-  const MAX_IMAGES = getProviderMaxImages(providerId);
+  const MAX_IMAGES = getProviderMaxImages(photoProviderId);
   const overProviderLimit = images.length > MAX_IMAGES;
   const activeCooldownUntil = providerId === "groq" || providerId === "cloudflare"
     ? cooldownUntil[providerId] : 0;
@@ -478,49 +499,56 @@ export default function Home() {
     );
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="wellness-logfood min-h-screen bg-slate-50 text-slate-900">
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-        <section className={entryMode === "manual" ? "mx-auto mb-6 max-w-5xl" : "mx-auto mb-6 max-w-2xl"}>
+        <section className="wellness-log-header mx-auto mb-6 max-w-4xl">
           <p className="mb-2 text-sm font-medium text-emerald-600">
             Log Food
           </p>
 
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            What did you eat?
+            Log something delicious.
           </h2>
 
-          <a href="/barcode" className="mb-4 inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-600">▦ Scan barcode or search packaged foods — free</a>
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-            {providerId === "groq" || providerId === "cloudflare"
-              ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "
-              : "For best results, scan 1-3 foods or drinks at a time. "}{MAX_IMAGES === 0
-              ? "This AI currently accepts text entries only."
-              : `Add up to ${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}, including labels, packaging, and scale photos.`}
+            {entryMode === "barcode"
+              ? "Upload a barcode photo, use your camera, or search a packaged food. Standard barcode lookups use no AI credits."
+              : <>{providerId === "groq" || providerId === "cloudflare"
+                ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "
+                : "For best results, scan 1-3 foods or drinks at a time. "}{MAX_IMAGES === 0
+                ? "This AI currently accepts text entries only."
+                : `Add up to ${MAX_IMAGES} photo${MAX_IMAGES === 1 ? "" : "s"}, including labels, packaging, and scale photos.`}</>}
           </p>
         </section>
 
-        <div className={`mx-auto mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1 ${entryMode === "manual" ? "max-w-5xl" : "max-w-2xl"}`} role="group" aria-label="How to log food">
-          <button type="button" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
-          <button type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual / Text</button>
+        <div className="wellness-log-modes mx-auto mb-6 flex max-w-4xl flex-wrap gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
+          <button type="button" data-khalories-tour="photo" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
+          <button type="button" aria-pressed={entryMode === "barcode"} onClick={() => { setEntryMode("barcode"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "barcode" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>▥ Barcode</button>
+          <button type="button" data-khalories-tour="manual" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual</button>
+          <button type="button" aria-pressed={entryMode === "saved"} onClick={() => { setEntryMode("saved"); resetAnalysis(); }} className={`flex-1 min-w-36 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "saved" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📖 Recipes &amp; Favorites</button>
         </div>
 
-        <AiProviderPicker value={providerId} onChange={next => {
+        {(entryMode === "photo" || entryMode === "manual") && <AiProviderPicker mode={entryMode} value={providerId} onChange={next => {
           setProviderId(next);
           if (getProviderMaxImages(next) === 0) setEntryMode("manual");
           setImageNotice(null);
           resetAnalysis();
-        }} photoCount={entryMode === "photo" ? images.length : 0} />
+        }} photoCount={entryMode === "photo" ? images.length : 0} />}
 
         <div
           ref={uploaderRef}
           className={
             analysisStarted
               ? "grid items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
-              : entryMode === "manual" ? "mx-auto w-full max-w-5xl" : "mx-auto max-w-2xl"
+              : entryMode === "manual" ? "mx-auto w-full max-w-5xl" : "mx-auto max-w-3xl"
           }
         >
-          {entryMode === "photo" ? (
+          {entryMode === "barcode" ? (
+            <section className="mx-auto w-full max-w-3xl"><BarcodeLookup /></section>
+          ) : entryMode === "saved" ? (
+            <SavedFoodPanel />
+          ) : entryMode === "photo" ? (
           <section
             className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-500 sm:p-6"
           >
@@ -754,7 +782,7 @@ export default function Home() {
             }} />
           )}
 
-          {analysisStarted && (
+          {analysisStarted && entryMode !== "saved" && (
             <section
               ref={resultRef}
               className="ai-result-enter scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
@@ -934,7 +962,9 @@ export default function Home() {
                               </span>
                             )}
                           </div>
-                        </div>
+                        
+                          <AdvancedNutrientsSummary values={food.advancedNutrients} />
+</div>
                       )
                     )}
                   </div>
@@ -992,6 +1022,8 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+                  <MealAdvancedNutrientsSummary foods={foods} />
+
 
                   {(providerId === "groq" || providerId === "cloudflare") &&
                      foods.some(hasMaterialCalorieMacroMismatch) && (
@@ -1109,7 +1141,7 @@ export default function Home() {
                       {entryMode === "photo" ? "Edit photos" : "Edit entry"}
                     </button>
 
-                    {analysis && <AddMealButton analysis={analysis} />}
+                    {analysis && <AddMealButton analysis={analysis} photoFiles={entryMode === "photo" ? images : []} />}
                   </div>
                 </>
               )}

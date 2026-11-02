@@ -6,7 +6,9 @@ export async function analyzeFoodText(description: string, options?: AiSubmissio
   if (trimmed.length < 3 || trimmed.length > 600) {
     throw new Error("Describe your food in 3 to 600 characters.");
   }
-  const response = await submitAiRequest("/api/food/text", {
+  const endpoint = options?.modelId === "ollama-local"
+    ? "/api/food/text/local" : "/api/food/text";
+  const response = await submitAiRequest(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ description: trimmed, model: options?.modelId }),

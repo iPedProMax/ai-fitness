@@ -10,10 +10,10 @@ describe("external text providers - no live requests", () => {
     await expect(createFreeTextProvider(id,"dummy").generate(req)).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
     expect(fetchMock).not.toHaveBeenCalled();
   });
-  it("pins OpenRouter to its free aggregator and forbids photos", async () => {
+  it("pins OpenRouter to its free aggregator and accepts photos", async () => {
     expect(JSON.parse(freeTextBody("openrouter",req)).model).toBe("openrouter/free");
     const photo = { type:"image" as const,mimeType:"image/png" as const,data:"iVBORw0KGgo=" };
-    await expect(createFreeTextProvider("openrouter","dummy",true).generate({...req,input:[...req.input,photo]})).rejects.toMatchObject({code:"NO_COMPATIBLE_PROVIDER"});
+    expect(JSON.parse(freeTextBody("openrouter", {...req,input:[...req.input,photo]})).messages[1].content[1].type).toBe("image_url");
     expect(fetchMock).not.toHaveBeenCalled();
   });
   it.each(["openrouter", "zai", "siliconflow", "huggingface", "cerebras"] as FreeTextProviderId[])("%s returns one sanitized JSON text result", async id => {

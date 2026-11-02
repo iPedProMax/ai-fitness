@@ -8,7 +8,7 @@ const { getUserMock, fromMock, limitMock, preferenceMock, redirectMock } = vi.ho
   const fromMock = vi.fn((table: string) => table === "user_preferences" ? ({
     select: () => ({ eq: () => ({ maybeSingle: preferenceMock }) }),
   }) : ({
-    select: () => ({ eq: () => ({ order: () => ({ limit: limitMock }) }) }),
+    select: () => ({ eq: () => ({ order: () => ({ limit: limitMock }), gte: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }) }) }),
   }));
   const redirectMock = vi.fn(() => { throw new Error("redirect"); });
   return { getUserMock, fromMock, limitMock, preferenceMock, redirectMock };
@@ -16,7 +16,7 @@ const { getUserMock, fromMock, limitMock, preferenceMock, redirectMock } = vi.ho
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ auth: { getUser: getUserMock }, from: fromMock }),
 }));
-vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+vi.mock("next/navigation", () => ({ redirect: redirectMock, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/components/activity-form", () => ({ ActivityForm: () => <div>Activity form</div> }));
 vi.mock("@/components/delete-activity-button", () => ({ DeleteActivityButton: () => <button>Delete</button> }));
 

@@ -21,8 +21,12 @@ export async function logMealAgain(id:string):Promise<Result>{
 export async function deleteSavedMeal(id:string):Promise<Result>{
   if(!uuid.test(id))return{ok:false,message:"Invalid meal ID."};
   const{db,user}=await currentUser();if(!user)return{ok:false,message:"Sign in first."};
-  const{data,error}=await db.from("meals").delete().eq("id",id).eq("user_id",user.id).select("id");
+  const{data,error}=await db.from("meals").delete().eq("id",id).eq("user_id",user.id).select("id,thumbnail_path");
   if(error||!data?.length)return{ok:false,message:"Could not delete meal. Check whether it's referenced by another record."};
+  // The Storage policy permits the owner to remove a file even after its meal was deleted.
+  if(data[0].thumbnail_path) {
+    await db.storage.from("meal-thumbnails").remove([data[0].thumbnail_path]);
+  }
   revalidatePath("/dashboard");revalidatePath("/meals");revalidatePath("/reports");
   return{ok:true};
 }
