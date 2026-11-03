@@ -9,6 +9,7 @@ import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
 import { isGeminiModelId } from "./model-catalog";
 import { groqCompletionTokens, groqResponseSchema } from "./providers/groq";
+import { checkAiRequestSafety } from "./request-safety";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -85,6 +86,8 @@ export async function reserveDurableAiUsage(kind: "analysis" | "refinement"): Pr
 
 /** Capture the FINAL validated/normalized public response for exact replay. */
 export async function withAiRequest(request: Request, handler: () => Promise<Response>): Promise<Response> {
+  const blocked = await checkAiRequestSafety(request);
+  if (blocked) return blocked;
   const context: Context = { request, snapshot: request.clone() };
   return contexts.run(context, async () => {
     let response: Response;

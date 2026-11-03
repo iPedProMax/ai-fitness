@@ -2,6 +2,10 @@
 export function isProtectedAppPage(pathname: string): boolean {
   return (
     pathname === "/" ||
+    pathname === "/coach" ||
+    pathname.startsWith("/coach/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/meals" ||

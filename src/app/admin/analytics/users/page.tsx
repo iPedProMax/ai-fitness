@@ -22,16 +22,16 @@ export default async function AdminUsersPage({ searchParams }: {
         <div><Link href="/admin/analytics" className="text-sm font-semibold text-emerald-700 hover:underline">Back to Admin Dashboard</Link>
           <p className="mt-6 text-xs font-bold uppercase tracking-[.2em] text-emerald-700">Khalories AI / Operations</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">User Management</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Private account directory. No meal histories, personal health data, passwords, or AI prompts. Read-only for now.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Private account directory. No meal histories, personal health data, passwords, or AI prompts. Account actions require extra authentication, a verified support request, and server-side safeguards.</p>
         </div>
-        <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-bold text-emerald-800">Admin only / Read-only</span>
+        <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-bold text-emerald-800">Admin only / Verified controls</span>
       </div>
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="admin-user-list-heading">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div><h2 id="admin-user-list-heading" className="text-lg font-extrabold">Accounts</h2>
             <p className="mt-1 text-xs text-slate-500">Page {directory.page}. {directory.total === null ? "Total accounts unavailable." : `${directory.total.toLocaleString()} registered accounts.`} Dates are Philippine time.</p>
           </div>
-          <span className="rounded-full bg-[#f4f8f2] px-3 py-2 text-xs font-semibold text-emerald-800">No account modifications</span>
+          <span className="rounded-full bg-[#f4f8f2] px-3 py-2 text-xs font-semibold text-emerald-800">Account actions require confirmation</span>
         </div>
         {directory.status === "unavailable" ? <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Account directory unavailable. Check the server-only Supabase service role configuration and Auth admin API permissions.</div> : <>
           <AdminUserDirectory users={directory.users}/>
@@ -42,7 +42,7 @@ export default async function AdminUsersPage({ searchParams }: {
           </nav>
         </>}
       </section>
-      <p className="mt-5 text-xs leading-5 text-slate-600">Account roles, suspensions, and sign-in times are shown for administrative review only. Changes to accounts, permissions, or credits are deliberately disabled in this phase.</p>
+      <p className="mt-5 text-xs leading-5 text-slate-600">Account roles, suspensions, and sign-in times are shown for administrative review only. Any destructive action requires strict authorization, an audit trail, and a separate confirmation on the selected account page.</p>
     </div>
   </main>;
 }

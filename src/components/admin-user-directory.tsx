@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { AdminDirectoryUser } from "@/lib/admin-user-format";
 
 /** Search is explicitly restricted to this page's 20 accounts. No network calls. */
@@ -23,6 +24,7 @@ export function AdminUserDirectory({ users }: { users: AdminDirectoryUser[] }) {
           <th scope="col" className="px-4 py-4">Account</th><th scope="col" className="px-4 py-4">Joined (PH)</th>
           <th scope="col" className="px-4 py-4">Last sign-in</th><th scope="col" className="px-4 py-4">Role</th>
           <th scope="col" className="px-4 py-4">Status</th>
+          <th scope="col" className="px-4 py-4">Manage</th>
         </tr></thead>
         <tbody>{shown.map(user => <tr key={user.id} className="border-b border-slate-100 last:border-b-0">
           <td className="px-4 py-4"><p className="break-all font-semibold text-[#153d2b]">{user.email}</p><p className="mt-1 font-mono text-[11px] text-slate-500" title={user.id}>ID: {user.id.slice(0,8)}…</p></td>
@@ -30,6 +32,7 @@ export function AdminUserDirectory({ users }: { users: AdminDirectoryUser[] }) {
           <td className="whitespace-nowrap px-4 py-4 text-slate-600">{user.lastSignIn}</td>
           <td className="px-4 py-4 font-semibold text-slate-700">{user.role}</td>
           <td className="px-4 py-4"><span className="rounded-full border border-slate-200 bg-[#f4f8f2] px-3 py-1.5 text-xs font-semibold text-emerald-900">{user.status}</span></td>
+          <td className="px-4 py-4"><Link href={`/admin/analytics/users/${user.id}`} className="inline-block cursor-pointer rounded-xl border border-emerald-200 px-3 py-2 font-semibold text-emerald-800 hover:bg-emerald-50">Manage</Link></td>
         </tr>)}</tbody>
       </table>
       {shown.length === 0 && <p className="p-5 text-sm text-slate-500">No accounts match this page filter.</p>}
