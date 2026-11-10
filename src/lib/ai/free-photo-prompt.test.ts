@@ -30,7 +30,7 @@ describe("Free vision provider prompt budgets", () => {
   it("routes short photo prompts for both Free providers and exposes safe refinement errors", () => {
     const route = readFileSync("src/app/api/food/analyze/route.ts", "utf8");
     expect(route).toContain('provider.id === "cloudflare" ? cloudflarePhotoPrompt');
-    expect(route).toContain('provider.id === "groq" ? `Image ${index + 1}/${images.length}.`');
+    expect(route).toContain('provider.id === "groq" || provider.id === "openrouter" || provider.id === "zai" ? `Image ${index + 1}/${images.length}. Inspect the photo, label or scale.`');
     const page = readFileSync("src/app/page.tsx", "utf8");
     expect(page).toContain("error instanceof AiHttpError");
   });

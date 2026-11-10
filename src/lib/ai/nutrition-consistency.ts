@@ -13,3 +13,43 @@ export function hasMaterialCalorieMacroMismatch(food: FoodItem): boolean {
   const discrepancy = Math.abs(food.calories - macroCalories);
   return discrepancy > Math.max(15, food.calories * 0.25);
 }
+
+/** Reject plainly unusable photo portions from lightweight AI providers.
+ * A 0 g portion or 0% confidence is not a usable food estimate. This is not a
+ * rule against low-calorie meals or drinks: water with a real positive portion
+ * remains valid, and small calorie counts alone never trigger rejection. */
+export function hasUnusablePhotoNutrition(food: FoodItem): boolean {
+  return !Number.isFinite(food.estimatedGrams) || food.estimatedGrams < 0.5 ||
+    !Number.isFinite(food.confidence) || food.confidence <= 0;
+}
+
+/** A carb-rich food with positive calories and all macronutrients reported
+ * as zero cannot be presented as a complete nutrition estimate. Target this
+ * narrowly; water/coffee, alcohol, and genuinely tiny portions remain valid.
+ * Do not invent macro values or "correct" a model's numbers automatically. */
+export function hasImplausibleStarchyPhotoNutrition(food: FoodItem): boolean {
+  if (food.unknownMacros?.length) return false;
+  if (![food.estimatedGrams, food.calories, food.protein, food.carbs, food.fat]
+    .every(value => Number.isFinite(value) && value >= 0)) return false;
+  const commonStarch = /\b(rice|oats?|oatmeal|cereal|pasta|noodles?|bread|potatoes?|pancit|lugaw)\b/i;
+  return commonStarch.test(food.name) && food.estimatedGrams >= 1 && food.calories >= 3 &&
+    food.protein <= 0.05 && food.carbs <= 0.05 && food.fat <= 0.05;
+}
+
+/** Block only EXTREME contradictions from lightweight photo providers.
+ * 4/4/9 is an approximation, not a universal calorie formula: alcohol, fibre,
+ * rounding and label differences can legitimately shift the total.
+ * This is a plausibility gate, NEVER an automatic macro recalculation. */
+export function hasSevereCalorieMacroMismatch(food: FoodItem): boolean {
+  if (food.unknownMacros?.length) return false;
+  const { calories, protein, carbs, fat } = food;
+  if (![calories, protein, carbs, fat].every(value => Number.isFinite(value) && value >= 0)) return false;
+  // Alcohol's energy (about 7 kcal/g) is omitted from standard P/C/F fields.
+  // Don't reject visibly alcoholic drinks solely for this reason.
+  if (/\b(beer|wine|vodka|whisky|whiskey|rum|gin|tequila|liqueur|liquor|cocktail|alcohol|hard seltzer)\b/i.test(food.name)) return false;
+  const macroCalories = 4 * protein + 4 * carbs + 9 * fat;
+  const largerTotal = Math.max(calories, macroCalories);
+  if (largerTotal < 100) return false;
+  const difference = Math.abs(calories - macroCalories);
+  return difference >= 80 && difference / largerTotal >= 0.5;
+}

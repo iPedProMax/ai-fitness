@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+// Legacy Moondream tests must not inherit a local Scout experiment setting.
+import { beforeEach as isolateCloudflareModel } from "vitest";
+isolateCloudflareModel(() => { vi.stubEnv("AI_CLOUDFLARE_VISION_MODEL", "moondream"); });
 import { foodAnalysisJsonSchema, foodAnalysisSchema, type FoodAnalysis } from "@/lib/food-analysis";
 import { createCloudflareProvider } from "@/lib/ai/providers/cloudflare";
 import { groqPhotoPrompt } from "@/lib/ai/groq-photo-prompt";
@@ -30,6 +33,20 @@ describe("free vision evidence handling", () => {
     const first = ensureFreeProviderScaleClarifications(oats);
     expect(ensureFreeProviderScaleClarifications(first)).toEqual(first);
     expect(ensureFreeProviderScaleClarifications(oats).foods).toEqual(oats.foods);
+  });
+  it("does not trust Groq's unconfirmed SCALE_MEASURED claim", () => {
+    const claimed = { ...oats, foods: [{ ...oats.foods[0], weightSource: "SCALE_MEASURED" as const }] };
+    const result = ensureFreeProviderScaleClarifications(claimed);
+    expect(result.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(result.clarifications).toHaveLength(1);
+    expect(result.clarifications[0].id).toBe("tare_status_0");
+    expect(ensureFreeProviderScaleClarifications(result)).toEqual(result);
+  });
+  it("removes unsupported measured claims even without readable scale grams", () => {
+    const claimed = { ...oats, foods: [{ ...oats.foods[0], scaleReadingGrams: undefined, weightSource: "SCALE_MEASURED" as const }] };
+    const result = ensureFreeProviderScaleClarifications(claimed);
+    expect(result.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(result.clarifications).toHaveLength(0);
   });
   it("makes free-provider prompts distinguish oats from rice without template nutrition values", async () => {
     expect(groqPhotoPrompt).toMatch(/rolled oats/i);

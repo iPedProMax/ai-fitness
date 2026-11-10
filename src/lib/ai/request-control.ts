@@ -9,6 +9,8 @@ import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
 import { isGeminiModelId } from "./model-catalog";
 import { groqCompletionTokens, groqResponseSchema } from "./providers/groq";
+import { mistralTokenReservation } from "./mistral-token-budget";
+import { checkAiRequestSafety } from "./request-safety";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
 type Context = { request: Request; snapshot: Request; userId?: string; key?: string; claim?: string };
@@ -85,6 +87,8 @@ export async function reserveDurableAiUsage(kind: "analysis" | "refinement"): Pr
 
 /** Capture the FINAL validated/normalized public response for exact replay. */
 export async function withAiRequest(request: Request, handler: () => Promise<Response>): Promise<Response> {
+  const blocked = await checkAiRequestSafety(request);
+  if (blocked) return blocked;
   const context: Context = { request, snapshot: request.clone() };
   return contexts.run(context, async () => {
     let response: Response;
@@ -107,10 +111,18 @@ export async function withAiRequest(request: Request, handler: () => Promise<Res
 // its published free-tier TPM; Cloudflare's local token cap is NOT Neurons.
 // No refund for ambiguous upstream failures.
 function extraProviderReservation(id: string, request: AiGenerationRequest): number | null {
-  if (id !== "groq" && id !== "cloudflare") return null;
+  if (!["groq", "cloudflare", "mistral", "ollama-local", "openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(id)) return null;
   const imageCount = request.input.filter(part => part.type === "image").length;
   if (id === "groq" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "cloudflare" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "mistral" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "ollama-local" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "openrouter" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (id === "zai" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  if (["siliconflow", "huggingface", "cerebras"].includes(id) && imageCount !== 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  // Mistral sends a compact response schema; reserve against its actual outbound body,
+  // not the larger generic schema that is never transmitted to this provider.
+  if (id === "mistral") return mistralTokenReservation(request);
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");
@@ -120,7 +132,7 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   const tokens = id === "groq"
     ? Math.ceil(bytes / 3) + imageCount * 2048 + groqCompletionTokens(imageCount) + 256
     : Math.ceil(bytes * 1.25) + 1024 + 4096 + imageCount * 2048;
-  if (tokens > (id === "groq" ? 7800 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
+  if (tokens > (id === "groq" ? 7800 : id === "ollama-local" ? 16000 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
   return tokens;
 }
 

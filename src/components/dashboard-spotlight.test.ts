@@ -17,7 +17,9 @@ describe("dashboard decorative spotlight", () => {
   it("respects reduced motion and preserves dashboard content", () => {
     expect(spotlight).toContain("motion-reduce:hidden");
     expect(spotlight).toContain('event.pointerType === "touch"');
-    expect(dashboard).toContain("<DashboardSpotlight>");
+    expect(dashboard).toContain('className="wellness-dashboard');
+    expect(dashboard).toContain("<CoachInsightCard />");
+    expect(dashboard).toContain("<WaterSummary />");
     expect(dashboard).toContain("<TodayOverview />");
     expect(dashboard).toContain('href="/meals"');
     expect(dashboard).toContain('href="/"');

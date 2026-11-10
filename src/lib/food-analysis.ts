@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { advancedNutrientsSchema } from "./advanced-nutrients";
 
 export const weightSourceSchema =
   z.enum([
@@ -59,8 +60,14 @@ export const foodItemSchema =
     confidence:
       z.number().min(0).max(1),
 
+    // Distinguish a model's self-reported score from a schema-only placeholder.
+    confidenceSource: z.enum(["MODEL_REPORTED", "NOT_CALIBRATED"]).optional(),
+
     // Explicit local user correction, recorded in the meal analysis snapshot.
     userCorrected: z.boolean().optional(),
+
+    // Optional manual/label-recorded details, not inferred when absent.
+    advancedNutrients: advancedNutrientsSchema.optional(),
 
     // For manual logs only; omitted for fully known AI and photo values.
     // Database numeric zeros for these fields are placeholders, not known 0g.

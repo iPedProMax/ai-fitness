@@ -1,3 +1,14 @@
+// LEGACY ACCOUNTING FIXTURE ONLY: these tests exercise old Gemini-backed credit
+// and replay flows. Role enforcement is tested WITHOUT this mock in
+// text-role-routes.test.ts. Production endpoints retain strict role admission.
+vi.mock("@/lib/ai/provider-role-policy", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/lib/ai/provider-role-policy")>();
+  return {
+    ...actual,
+    isProviderAllowedForRole: (id: string, role: "vision" | "text") =>
+      (role === "text" && id === "gemini") || actual.isProviderAllowedForRole(id, role),
+  };
+});
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";

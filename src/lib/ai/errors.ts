@@ -5,12 +5,12 @@ import { NextResponse } from "next/server";
 type RoutingErrorCode = "NO_COMPATIBLE_PROVIDER" | "UNAVAILABLE" | "TIMEOUT" | "CANCELLED" | "ACCOUNTING_UNAVAILABLE" | "PROVIDER_LIMITED" | "INPUT_TOO_LARGE";
 
 const messages: Record<RoutingErrorCode, string> = {
-  INPUT_TOO_LARGE: "This request exceeds the selected AI provider's safe size or token limit. Try fewer photos or switch to Gemini.",
-  PROVIDER_LIMITED: "AI provider capacity is temporarily unavailable. Please try again later.",
+  INPUT_TOO_LARGE: "This AI request is too large for the selected provider. Shorten the text or reduce the number or size of attachments before retrying.",
+  PROVIDER_LIMITED: "The selected AI provider is rate-limited or at capacity. Wait for its cooldown before trying again.",
   ACCOUNTING_UNAVAILABLE: "AI usage accounting cannot safely authorize this request.",
   NO_COMPATIBLE_PROVIDER: "No compatible AI provider is available for this request.",
   UNAVAILABLE: "AI providers are temporarily unavailable. Please try again later.",
-  TIMEOUT: "The AI request timed out. Please try again later.",
+  TIMEOUT: "The selected AI provider timed out before finishing the scan. You can try one clear photo later; a new attempt may count as an analysis.",
   CANCELLED: "The AI request was cancelled.",
 };
 
@@ -47,6 +47,13 @@ export function aiRoutingErrorResponse(error: unknown): NextResponse | null {
     const status = error && typeof error === "object" && "status" in error ? error.status :
       error && typeof error === "object" && "statusCode" in error ? error.statusCode : undefined;
     if (status === 429) return aiRoutingErrorResponse(new AiRoutingError("PROVIDER_LIMITED"));
+    // Distinguish explicit upstream timeouts from generic service failures.
+    // Never inspect provider message text: SDK error text may include private data.
+    const name = error && typeof error === "object" && "name" in error ? error.name : undefined;
+    if (status === 408 || status === 504 ||
+        name === "RequestTimeoutError" || name === "APIConnectionTimeoutError" || name === "TimeoutError") {
+      return aiRoutingErrorResponse(new AiRoutingError("TIMEOUT"));
+    }
     return null;
   }
   const status = error.code === "INPUT_TOO_LARGE" ? 413 : error.code === "TIMEOUT" ? 504 : error.code === "CANCELLED" ? 408 : 503;

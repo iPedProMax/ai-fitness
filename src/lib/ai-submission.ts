@@ -29,9 +29,18 @@ export async function submitAiRequest(url: string, init: RequestInit, options: A
   headers.set("Idempotency-Key", key);
   const request = { ...init, headers };
   // Retry only transport errors. Never retry an HTTP error or buy another credit.
-  try { return await fetch(url, request); }
-  catch (error) {
-    if (!(error instanceof TypeError) || init.signal?.aborted) throw error;
-    return fetch(url, request);
+  // Reflect the durable server balance even when the meal is never saved.
+  try {
+    try { return await fetch(url, request); }
+    catch (error) {
+      if (!(error instanceof TypeError) || init.signal?.aborted) throw error;
+      return await fetch(url, request);
+    }
+  } finally {
+    // A failed request may have consumed an upstream attempt. Never guess whether
+    // a credit was used: tell the visible balance to re-read the server.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("khalories:ai-usage-changed"));
+    }
   }
 }

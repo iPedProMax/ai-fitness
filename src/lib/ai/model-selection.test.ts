@@ -69,7 +69,7 @@ describe("single Gemini model admission", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it.each(["gemini-3.8-flash", "gemini-3.6-flash", "openrouter"])(
+  it.each(["gemini-3.8-flash", "gemini-3.6-flash"])(
     "blocks unsupported %s before using provider or credits", async model => {
       const response = await analyze(imageRequest(model));
       expect(response.status).toBe(400);
@@ -79,6 +79,28 @@ describe("single Gemini model admission", () => {
     },
   );
 
+  it("allows OpenRouter one photo and rejects a second before credits", async () => {
+    const visionProvider = {
+      ...defaultProvider, id: "openrouter",
+      capabilities: { text: true, vision: true, maxImages: 1, structuredJson: true },
+    };
+    provider.mockReturnValue(visionProvider);
+    expect(await selectRequestedAiModel("openrouter", 1)).toMatchObject({ provider: visionProvider });
+    const rejection = await selectRequestedAiModel("openrouter", 2);
+    expect(rejection.error?.status).toBe(422);
+    expect(await rejection.error?.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(provider).toHaveBeenCalledOnce();
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("allows an explicitly available text-only provider for text tasks", async () => {
+    const textProvider = {
+      ...defaultProvider, id: "openrouter",
+      capabilities: { text: true, vision: false, maxImages: 0, structuredJson: true },
+    };
+    provider.mockReturnValue(textProvider);
+    expect(await selectRequestedAiModel("openrouter", 0)).toMatchObject({ provider: textProvider });
+    expect((await selectRequestedAiModel("openrouter", 1)).error?.status).toBe(422);
+  });
   it("blocks multi-photo requests for an old non-default model", async () => {
     const response = await analyze(imageRequest("cloudflare", 2));
     expect(response.status).toBe(422);
@@ -92,14 +114,17 @@ describe("single Gemini model admission", () => {
   });
 
   it("rejects attempts to choose another model in refinements", async () => {
-    const response = await refine(refineRequest("mistral"));
+    const response = await refine(refineRequest("gemini-3.8-flash"));
     expect(response.status).toBe(400);
     expect(reserve).not.toHaveBeenCalled();
   });
 
-  it("accepts Cloudflare for one photo when available", async () => {
-    provider.mockReturnValue({ ...defaultProvider, id: "cloudflare", capabilities: { ...defaultProvider.capabilities, maxImages: 1 } });
-    expect(await selectRequestedAiModel("cloudflare", 1)).toMatchObject({ provider: { id: "cloudflare" } });
+  it("blocks Cloudflare from Photo Scan, but leaves the text adapter available", async () => {
+    const blocked = await selectRequestedAiModel("cloudflare", 1, "vision");
+    expect(blocked.error?.status).toBe(422);
+    expect(provider).not.toHaveBeenCalled();
+    provider.mockReturnValue({ ...defaultProvider, id: "cloudflare" });
+    expect(await selectRequestedAiModel("cloudflare", 0, "text")).toMatchObject({ provider: { id: "cloudflare" } });
     expect(provider).toHaveBeenCalledExactlyOnceWith("cloudflare");
   });
 
@@ -115,6 +140,21 @@ describe("single Gemini model admission", () => {
     const response = await analyze(imageRequest("groq", 3));
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("rejects Mistral photo uploads before accounting but supports text", async () => {
+    provider.mockReturnValue({ ...defaultProvider, id: "mistral", capabilities: { ...defaultProvider.capabilities, maxImages: 0, vision: false, text: true } });
+    expect(await selectRequestedAiModel("mistral", 0)).toMatchObject({ provider: { id: "mistral" } });
+    for (const count of [1, 2]) {
+      expect((await selectRequestedAiModel("mistral", count)).error?.status).toBe(422);
+    }
+    const response = await analyze(imageRequest("mistral", 1));
+    expect(response.status).toBe(422);
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("rejects multiple Ollama Local photos before credits are reserved", async () => {
+    const response = await analyze(imageRequest("ollama-local", 2));
+    expect(response.status).toBe(422);
     expect(reserve).not.toHaveBeenCalled();
   });
   it("rejects excessive image counts with the normal compatibility error", async () => {

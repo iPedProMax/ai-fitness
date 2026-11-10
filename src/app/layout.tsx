@@ -1,3 +1,4 @@
+import { AppearanceBoot } from "@/components/appearance-boot";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -14,17 +15,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Fitness",
-  description: "AI-powered food tracking and nutrition insights.",
+  title: "Khalories AI",
+  description: "Big cravings. Smart tracking.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
+      suppressHydrationWarning
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><AppShell>{children}</AppShell></body>
+      <body className="min-h-full flex flex-col"><AppearanceBoot /><AppShell>{children}</AppShell></body>
     </html>
   );
 }

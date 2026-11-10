@@ -1,0 +1,79 @@
+/* AURA â€” an original AI Fitness soft-UI design language.
+   Palette: midnight plum, luminous iris, porcelain lavender, sunrise coral.
+   Applies to every existing page through global utility treatments. */
+:root {
+  color-scheme: light;
+  --aura-bg: #f1f0f8;
+  --aura-ink: #292743;
+  --aura-subtle: #74728d;
+  --aura-paper: #faf9ff;
+  --aura-iris: #6555b5;
+  --aura-iris-deep: #4e408d;
+  --aura-line: #e0ddeb;
+  --aura-raised: 8px 9px 25px #d8d5e4, -8px -8px 25px #ffffff;
+  --aura-pressed: inset 4px 4px 9px #d8d6e6, inset -4px -4px 9px #ffffff;
+  --background: var(--aura-bg);
+  --foreground: var(--aura-ink);
+}
+html { color-scheme:light; background:var(--aura-bg); }
+body { background:var(--aura-bg); color:var(--aura-ink); font-family: var(--font-geist-sans), Arial, sans-serif; }
+body::before {
+  content:""; position:fixed; pointer-events:none; inset:0; z-index:0;
+  background:radial-gradient(ellipse 60% 38% at 92% 3%,#ddd6f988,transparent 77%),
+    radial-gradient(ellipse 48% 31% at 0% 100%,#f9d6e055,transparent 75%);
+}
+body > * { position:relative; }
+/* Original class-based application-wide palette. Unlayered rules deliberately
+   override Tailwind utility colors, which keeps markup and app behavior intact. */
+[class~="bg-slate-50"], [class~="bg-zinc-950"] { background-color:var(--aura-bg) !important; }
+[class~="bg-white"], [class~="bg-zinc-900"] { background-color:var(--aura-paper) !important; }
+[class~="bg-slate-100"], [class~="bg-zinc-800"] { background-color:#edebf6 !important; }
+[class~="border-slate-200"], [class~="border-slate-300"], [class~="border-white/10"] { border-color:var(--aura-line) !important; }
+[class~="text-slate-900"], [class~="text-zinc-950"] { color:var(--aura-ink) !important; }
+[class~="text-slate-600"], [class~="text-slate-500"], [class~="text-slate-400"],
+[class~="text-zinc-400"], [class~="text-zinc-500"] { color:var(--aura-subtle) !important; }
+[class~="text-emerald-700"], [class~="text-emerald-600"], [class~="text-emerald-400"] { color:var(--aura-iris) !important; }
+[class~="bg-emerald-50"], [class~="bg-emerald-100"] { background-color:#e9e5fa !important; }
+[class~="border-emerald-200"], [class~="border-emerald-300"] { border-color:#cfc4f3 !important; }
+[class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-slate-900"] {
+  background:linear-gradient(145deg,#8172cf,#5747a0) !important;
+  color:#fff !important; border-color:transparent !important;
+  box-shadow:4px 5px 14px #6554a544,-2px -2px 8px #fff9;
+}
+/* Raised surfaces, recessed form controls, consistent tactile interaction. */
+:where(main,aside,header) :where(section,article,div,a,form)[class*="rounded-2xl"][class*="bg-white"],
+:where(main,aside,header) :where(section,article,div,a,form)[class*="rounded-3xl"][class*="bg-white"],
+[class~="bg-zinc-900"][class*="rounded"] {
+  border:1px solid #ffffffd1 !important; border-radius:25px !important;
+  box-shadow:var(--aura-raised) !important;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select {
+  background-color:#efedf8 !important; border:1px solid #e2deef !important;
+  border-radius:15px !important; color:var(--aura-ink) !important;
+  box-shadow:var(--aura-pressed);
+}
+input::placeholder,textarea::placeholder { color:#9894ad !important; }
+[class~="rounded-xl"] { border-radius:16px; }
+[class~="rounded-2xl"] { border-radius:23px; }
+[class~="rounded-3xl"] { border-radius:29px; }
+button,a,input,textarea,select { transition:transform .18s ease,box-shadow .18s ease,filter .18s ease; }
+button:not(:disabled):active,a:active { transform:translateY(1px); }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible {
+  outline:3px solid #a392eb !important; outline-offset:3px;
+}
+@media (hover:hover) and (pointer:fine) { button:not(:disabled):hover,a[href]:hover { filter:brightness(1.035); } }
+/* Dark feature panels stay readable; auth forms are light and calm. */
+[class~="bg-slate-900"] :is(h1,h2,h3,p,span) { color:#fff; }
+[class~="bg-slate-900"] [class~="text-slate-400"],
+[class~="bg-slate-900"] [class~="text-slate-300"] { color:#e2dcfa !important; }
+[class~="bg-zinc-950"] [class~="text-white"], [class~="bg-zinc-900"] [class~="text-white"] { color:var(--aura-ink); }
+[class~="bg-zinc-950"] label, [class~="bg-zinc-900"] label { color:var(--aura-ink); }
+.aura-sidebar {
+  background:linear-gradient(156deg,#f9f8ff,#eeebf8) !important;
+  box-shadow:7px 0 35px #cfcadd55;
+}
+.aura-header { background:#f8f7fdeb !important; box-shadow:0 6px 22px #cbc7dd3d; }
+.aura-nav-active { box-shadow:var(--aura-pressed); border:1px solid #ffffffba; border-radius:17px; }
+.aura-brand { background:linear-gradient(135deg,#f38fa0,#7d6ac8) !important;box-shadow:4px 5px 14px #6554a544; }
+@media (max-width:640px) { :root { --aura-raised:5px 6px 16px #d8d5e4,-5px -5px 16px #fff; } }
+@media (prefers-reduced-motion:reduce) { button,a,input,textarea,select { transition:none !important; } }

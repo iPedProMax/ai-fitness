@@ -1,3 +1,14 @@
+// LEGACY ACCOUNTING FIXTURE ONLY: these tests exercise old Gemini-backed credit
+// and replay flows. Role enforcement is tested WITHOUT this mock in
+// text-role-routes.test.ts. Production endpoints retain strict role admission.
+vi.mock("@/lib/ai/provider-role-policy", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/lib/ai/provider-role-policy")>();
+  return {
+    ...actual,
+    isProviderAllowedForRole: (id: string, role: "vision" | "text") =>
+      (role === "text" && id === "gemini") || actual.isProviderAllowedForRole(id, role),
+  };
+});
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 import { generateWithFallback } from "./router";
@@ -108,4 +119,93 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(reserve).not.toHaveBeenCalled();
     expect(getProvider).not.toHaveBeenCalled();
   });
+
+  it.each(["groq"])("rejects extreme %s macro contradiction rather than saving it", async id => {
+    const provider = mockProvider(id);
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Rolled oats", calories: 377, protein: 7, carbs: 4, fat: 1,
+    }], totalCalories: 377 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["oats"], "oats.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "AI_NUTRITION_INCONSISTENT" });
+    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
+    expect(provider.generate).toHaveBeenCalledOnce();
+  });
+
+  it.each(["cloudflare", "openrouter", "zai"])("rejects %s photo scanning at the authorization gate", async id => {
+    const provider = mockProvider(id);
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["food"], "food.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(getProvider).not.toHaveBeenCalled();
+    expect(provider.generate).not.toHaveBeenCalled();
+  });
+
+  it("keeps Gemini's previous handling untouched", async () => {
+    const provider = mockProvider("gemini");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Rolled oats", calories: 377, protein: 7, carbs: 4, fat: 1,
+    }], totalCalories: 377 }) });
+    getProvider.mockReturnValue(provider);
+    const response = await photo(photoRequest());
+    expect(response.status).toBe(200);
+    expect((await response.json()).foods[0].calories).toBe(377);
+  });
+
+  it("downgrades an unconfirmed Groq scale and asks for tare", async () => {
+    const provider = mockProvider("groq");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], scaleReadingGrams: 105, weightSource: "SCALE_MEASURED",
+    }] }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", "groq");
+    body.append("images", new File(["rice"], "rice.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.foods[0].weightSource).toBe("AI_ESTIMATE");
+    expect(data.clarifications).toEqual(expect.arrayContaining([expect.objectContaining({ id: "tare_status_0" })]));
+  });
+  it.each(["groq"])("blocks the near-zero oats result from %s", async id => {
+    const provider = mockProvider(id);
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Quaker Oats Instant Oats", estimatedGrams: 0,
+      calories: 7, protein: 0, carbs: 0, fat: 0, confidence: 0,
+    }], totalCalories: 7 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["oats"], "oats.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "AI_NUTRITION_UNUSABLE" });
+    expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
+    expect(provider.generate).toHaveBeenCalledOnce();
+  });
+
+  it("still accepts truly zero-calorie water from a photo provider", async () => {
+    const provider = mockProvider("groq");
+    provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
+      ...analysis.foods[0], name: "Water", estimatedGrams: 250,
+      calories: 0, protein: 0, carbs: 0, fat: 0, confidence: 0.8,
+    }], totalCalories: 0 }) });
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", "groq");
+    body.append("images", new File(["water"], "water.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).foods[0].calories).toBe(0);
+  });
+
 });

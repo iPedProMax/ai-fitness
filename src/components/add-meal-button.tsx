@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { saveMeal } from "@/app/meals/actions";
+import { createClient } from "@/lib/supabase/client";
+import { makeMealThumbnail } from "@/lib/meal-thumbnail";
 import { localMealTimeToIso } from "@/lib/meal-time-input";
 
-type Props = { analysis: FoodAnalysis };
+type Props = { analysis: FoodAnalysis; photoFiles?: File[] };
 
-export function AddMealButton({ analysis }: Props) {
+export function AddMealButton({ analysis, photoFiles = [] }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const savingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -17,6 +19,8 @@ export function AddMealButton({ analysis }: Props) {
   const [mealDate, setMealDate] = useState("");
   const [mealClock, setMealClock] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [savePhoto, setSavePhoto] = useState(photoFiles.length > 0);
+  const [photoNotice, setPhotoNotice] = useState("");
   const isSaved = savedAnalysis === analysis;
 
   useEffect(() => {
@@ -25,11 +29,14 @@ export function AddMealButton({ analysis }: Props) {
     setMealDate("");
     setMealClock("");
     setError(null);
+    setPhotoNotice("");
+    setSavePhoto(photoFiles.length > 0);
     if (dialogRef.current?.open) dialogRef.current.close();
   }, [analysis]);
 
   function openConfirmation() {
     if (isSaving || isSaved) return;
+    setSavePhoto(photoFiles.length > 0);
     setError(null);
     setMode("now");
     setMealDate("");
@@ -53,6 +60,33 @@ export function AddMealButton({ analysis }: Props) {
     try {
       const result = await saveMeal(analysis, consumedAt);
       if (result.ok) {
+        // The confirmed meal is saved first; a photo failure never undoes nutrition logging.
+        let photoMessage = "";
+        const selectedPhoto = photoFiles[0];
+        if (savePhoto && selectedPhoto) {
+          try {
+            const thumbnail = await makeMealThumbnail(selectedPhoto);
+            const db = createClient();
+            const { data: auth, error: authError } = await db.auth.getUser();
+            if (authError || !auth.user) throw new Error("No authenticated photo owner.");
+            const path = `${auth.user.id}/${result.mealId}.webp`;
+            const { error: uploadError } = await db.storage.from("meal-thumbnails").upload(path, thumbnail, {
+              contentType: "image/webp", cacheControl: "3600", upsert: false,
+            });
+            if (uploadError) throw uploadError;
+            const { error: updateError } = await db.from("meals")
+              .update({ thumbnail_path: path })
+              .eq("id", result.mealId).eq("user_id", auth.user.id);
+            if (updateError) {
+              await db.storage.from("meal-thumbnails").remove([path]);
+              throw updateError;
+            }
+            photoMessage = " A small private food photo was saved too.";
+          } catch {
+            photoMessage = " Your meal is saved, but its photo couldn't be stored. Confirm the staging photo-storage migration is active.";
+          }
+        }
+        setPhotoNotice(photoMessage);
         setSavedAnalysis(analysis);
         dialogRef.current?.close();
         return;
@@ -75,12 +109,12 @@ export function AddMealButton({ analysis }: Props) {
       <button type="button" onClick={openConfirmation} disabled={isSaving || isSaved} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
         {isSaved ? "Saved!" : "Add Meal"}
       </button>
-      {isSaved && <p role="status" className="text-xs text-emerald-700">Meal saved successfully.</p>}
+      {isSaved && <p role="status" className="text-xs text-emerald-700">Meal saved successfully.{photoNotice}</p>}
       <dialog ref={dialogRef} aria-labelledby="meal-confirm-title" className="m-auto w-[min(92vw,440px)] max-h-[90dvh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-900/60 max-sm:mt-auto max-sm:mb-0 max-sm:w-full max-sm:rounded-b-none">
         <form onSubmit={confirmSave} className="space-y-4 p-5 sm:p-6">
           <h2 id="meal-confirm-title" className="text-xl font-bold">Save your meal</h2>
           <p className="text-sm text-slate-500">When did you eat this food?</p>
-          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">Meal total: {Math.round(analysis.totalCalories)} kcal</div>
+          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-slate-900">Meal total: {Math.round(analysis.totalCalories)} kcal</div>
           <fieldset className="space-y-3">
             <legend className="sr-only">Eating time</legend>
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="eaten-at" checked={mode === "now"} onChange={() => setMode("now")} className="accent-emerald-600" />Just now</label>
@@ -96,6 +130,19 @@ export function AddMealButton({ analysis }: Props) {
               </label>
               <p className="col-span-2 text-xs text-slate-500">Uses your device's local timezone.</p>
             </div>
+          )}
+          {photoFiles.length > 0 && (
+            <label htmlFor="save-meal-photo" className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-slate-900">
+              <input
+                id="save-meal-photo"
+                type="checkbox"
+                checked={savePhoto}
+                onChange={event => setSavePhoto(event.target.checked)}
+                disabled={isSaving}
+                className="h-4 w-4 shrink-0 cursor-pointer accent-emerald-700"
+              />
+              <span><strong>Save photo</strong> <span className="font-normal">(checked by default; uncheck to skip)</span></span>
+            </label>
           )}
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <div className="grid grid-cols-2 gap-3 pt-2">

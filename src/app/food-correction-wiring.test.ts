@@ -6,6 +6,7 @@ describe("food correction wiring", () => {
   it("applies corrections to the same analysis object used by AddMealButton", () => {
     const page = readFileSync(join(process.cwd(), "src/app/page.tsx"), "utf8");
     expect(page).toContain("<FoodCorrectionPanel analysis={analysis} onApply={setAnalysis} />");
-    expect(page).toContain("<AddMealButton analysis={analysis} />");
+    // The same reviewed result is saved, but imported Web food has no local photo attachment.
+    expect(page).toContain('<AddMealButton analysis={analysis} photoFiles={entryMode === "photo" && photoMethod === "app" ? images : entryMode === "photo" && photoMethod === "web" && webThumbnailFile ? [webThumbnailFile] : []} />');
   });
 });

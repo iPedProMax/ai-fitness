@@ -13,8 +13,13 @@ import {
 } from "../../../../lib/food-analysis";
 
 import { foodAnalysisPrompt } from "../../../../lib/food-analysis-prompt";
+import { geminiLabelFoodAnalysisJsonSchema, keepGeminiLabelNutrients, GEMINI_LABEL_NUTRIENT_GUIDANCE } from "@/lib/ai/gemini-label-nutrients";
 import { groqPhotoPrompt, cloudflarePhotoPrompt } from "@/lib/ai/groq-photo-prompt";
+import { freeTextBody } from "@/lib/ai/providers/free-text";
+import { normalizeFoodDescription, formatFoodDescriptionContext } from "@/lib/ai/food-description";
 import { normalizeSingleFoodProvider } from "@/lib/ai/single-food-provider";
+import { applyDescriptionClarificationAnswers } from "@/lib/ai/description-clarification";
+import { hasSevereCalorieMacroMismatch, hasUnusablePhotoNutrition, hasImplausibleStarchyPhotoNutrition } from "@/lib/ai/nutrition-consistency";
 import { ensureFreeProviderScaleClarifications } from "@/lib/ai/free-provider-scale";
 import { pruneFreeProviderClarifications } from "@/lib/ai/free-provider-clarifications";
 import {
@@ -399,24 +404,40 @@ async function handlePost(
       }
     }
 
-    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length);
+    const description = normalizeFoodDescription(formData.get("description"));
+    if (description === null) {
+      return NextResponse.json({ error: "Food description must be text and at most 400 characters." }, { status: 400 });
+    }
+
+    const requestedModel = formData.get("model");
+    if (requestedModel === "zai-vision" || requestedModel === "openrouter-vision") {
+      // Both shared adapters cap Base64 photo data at 4,000,000 chars (~3 MB raw).
+      // Reject BEFORE the Khalories credit reservation to avoid predictable failures.
+      if (images.some(image => image.size > 3_000_000)) {
+        return NextResponse.json({ error: "For this Vision pilot, each photo must be under 3 MB. Compress it or select Gemini.", code: "AI_IMAGE_TOO_LARGE" }, { status: 422 });
+      }
+      // Z.ai GLM-4.6V-Flash API documents JPEG/PNG, not WEBP.
+      if (requestedModel === "zai-vision" && images.some(image => image.type === "image/webp")) {
+        return NextResponse.json({ error: "Z.ai Vision pilot accepts JPG or PNG. Convert WEBP or select Gemini.", code: "AI_IMAGE_FORMAT_UNSUPPORTED" }, { status: 422 });
+      }
+    }
+    const chosen = await selectRequestedAiModel(formData.get("model") ?? undefined, images.length, "vision");
     if (chosen.error) return chosen.error;
     const provider = chosen.provider;
     selectedProviderId = provider.id;
 
-    const quotaError = await reserveAiUsage("analysis");
-    if (quotaError) return quotaError;
-
+    // Assemble and locally validate the provider payload BEFORE reserving a credit.
+    // Invalid oversized prompts or unsupported image content never reach quota accounting.
     const input: AiInputPart[] =
       [
         {
           type: "text",
-          text: provider.id === "groq" ? groqPhotoPrompt : provider.id === "cloudflare" ? cloudflarePhotoPrompt : foodAnalysisPrompt,
+          text: provider.id === "groq" || provider.id === "openrouter" || provider.id === "zai" ? groqPhotoPrompt : provider.id === "cloudflare" ? cloudflarePhotoPrompt : foodAnalysisPrompt,
         },
 
         {
           type: "text",
-          text: provider.id === "groq" ? `Photos: ${images.length}.` : provider.id === "cloudflare" ? `One image. Use its visible evidence.` : `
+          text: provider.id === "groq" || provider.id === "openrouter" || provider.id === "zai" ? `Photos: ${images.length}. Analyze one food or drink; the photo may include its scale, label or packaging.` : provider.id === "cloudflare" ? `One image. Use its visible evidence.` : `
 The user supplied ${images.length} image${images.length === 1 ? "" : "s"}.
 
 The images are NOT manually classified.
@@ -560,6 +581,14 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
         },
       ];
 
+    // One optional, unverified user hint is sent in the SAME request to the selected AI.
+    // Cloudflare extracts this tagged part into its Moondream vision question.
+    if (provider.id === "gemini") {
+      input.push({ type: "text", text: GEMINI_LABEL_NUTRIENT_GUIDANCE });
+    }
+    const descriptionContext = formatFoodDescriptionContext(description);
+    if (descriptionContext) input.push({ type: "text", text: descriptionContext });
+
     for (
       let index = 0;
       index < images.length;
@@ -568,7 +597,7 @@ Prepared-drink addition uncertainty is handled by the prepared-drink signals abo
       input.push({
         type: "text",
 
-        text: provider.id === "groq" ? `Image ${index + 1}/${images.length}.` : provider.id === "cloudflare" ? "Inspect this photo as evidence; identify its role." : `IMAGE ${index + 1} OF ${images.length}
+        text: provider.id === "groq" || provider.id === "openrouter" || provider.id === "zai" ? `Image ${index + 1}/${images.length}. Inspect the photo, label or scale.` : provider.id === "cloudflare" ? "Inspect this photo as evidence; identify its role." : `IMAGE ${index + 1} OF ${images.length}
 
 Inspect this image and determine its role from the visual evidence.
 
@@ -582,9 +611,23 @@ Associate it with other images only when the connection is reasonably supported.
       );
     }
 
+    if (provider.id === "openrouter" || provider.id === "zai") {
+      // Prebuild the exact non-network request to catch predictable size rejections.
+      // This must happen before reserveAiUsage: no credits or provider attempts on invalid input.
+      try {
+        freeTextBody(provider.id, { input, responseSchema: foodAnalysisJsonSchema });
+      } catch (error) {
+        const validationError = aiRoutingErrorResponse(error);
+        if (validationError) return validationError;
+        throw error;
+      }
+    }
+    const quotaError = await reserveAiUsage("analysis");
+    if (quotaError) return quotaError;
+
     const resultFromProvider = await provider.generate({
       input,
-      responseSchema: foodAnalysisJsonSchema,
+      responseSchema: provider.id === "gemini" ? geminiLabelFoodAnalysisJsonSchema : foodAnalysisJsonSchema,
       signal: request.signal,
     });
 
@@ -606,14 +649,54 @@ Associate it with other images only when the connection is reasonably supported.
     const parsed =
       JSON.parse(outputText);
 
-    const parsedResult =
-      foodAnalysisSchema.parse(
-        parsed
-      );
+    const parsedResult = provider.id === "gemini"
+      ? keepGeminiLabelNutrients(foodAnalysisSchema.parse(parsed))
+      : foodAnalysisSchema.parse(parsed);
 
     const providerNormalized = (provider.id === "groq" || provider.id === "cloudflare")
       ? normalizeSingleFoodProvider(parsedResult)
       : parsedResult;
+
+    // Small but implausible starch estimates can evade the broad severe mismatch check.
+    // Block them without inventing replacement calories or silently rewriting nutrition.
+    if (["groq", "cloudflare", "openrouter", "zai"].includes(provider.id) &&
+        providerNormalized.foods.some(hasImplausibleStarchyPhotoNutrition)) {
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({
+        provider: provider.id, category: "STARCH_WITH_ZERO_MACROS",
+      }));
+      return NextResponse.json({
+        error: "This AI could not produce a believable nutrition estimate for this food. Check the food and portion or use another provider. No meal was added.",
+        code: "AI_NUTRITION_INCONSISTENT",
+      }, { status: 502 });
+    }
+
+    // A visible food cannot have a credible 0 g serving or 0% model confidence.
+    // Reject these even when calories are too small for the macro mismatch gate.
+    // Valid low-calorie or zero-calorie foods with positive weight stay allowed.
+    if ((provider.id === "groq" || provider.id === "cloudflare") &&
+        providerNormalized.foods.some(hasUnusablePhotoNutrition)) {
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({
+        provider: provider.id, category: "UNUSABLE_PORTION_OR_CONFIDENCE",
+      }));
+      return NextResponse.json({
+        error: "This AI could not estimate a usable food portion. Please verify the food and quantity, or choose another AI provider. No meal was added.",
+        code: "AI_NUTRITION_UNUSABLE",
+      }, { status: 502 });
+    }
+
+    // Do not display obviously self-contradictory AI nutrition as a trusted scan.
+    // Never invent macros or silently recalculate calories to fix the model.
+    if ((provider.id === "groq" || provider.id === "cloudflare") &&
+        providerNormalized.foods.some(hasSevereCalorieMacroMismatch)) {
+      console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({
+        provider: provider.id, category: "SEVERE_MACRO_MISMATCH",
+      }));
+      return NextResponse.json({
+        error: "This AI gave conflicting calorie and macronutrient estimates. Try describing the food, choose another provider, or use Manual / Text.",
+        code: "AI_NUTRITION_INCONSISTENT",
+      }, { status: 502 });
+    }
+
     const withScaleClarifications =
       normalizeScaleClarifications(
         provider.id === "groq" || provider.id === "cloudflare"
@@ -641,21 +724,35 @@ Associate it with other images only when the connection is reasonably supported.
         withBrandClarifications
       );
 
-    return NextResponse.json(
-      provider.id === "gemini"
-        ? result
-        : pruneFreeProviderClarifications(result)
-    );
+    const resolved = provider.id === "gemini"
+      ? result
+      : pruneFreeProviderClarifications(result);
+    return NextResponse.json(applyDescriptionClarificationAnswers(resolved, description));
   } catch (error) {
     const routingError = aiRoutingErrorResponse(error);
     if (routingError) return routingError;
     if (selectedProviderId !== "gemini") {
       // Never expose upstream bodies, prompts, image content, or tokens.
+      // Whitelist app-generated error strings; never log upstream responses or photo content.
+      const cloudflareReason = selectedProviderId === "cloudflare" && error instanceof Error
+        ? ({
+            "Moondream returned invalid nutrition JSON.": "INVALID_JSON",
+            "Incomplete Moondream nutrition.": "MISSING_NUTRITION_FIELDS",
+            "Missing food identity.": "MISSING_FOOD_NAME",
+            "Moondream output was truncated.": "TRUNCATED",
+            "Moondream nutrition does not match the food schema.": "INVALID_SCHEMA",
+          } as Record<string, string>)[error.message] ?? "OTHER"
+        : undefined;
       console.warn("[AI_NUTRITION_DIAGNOSTIC] " + JSON.stringify({ provider: selectedProviderId,
         category: error instanceof SyntaxError ? "JSON_PARSE" :
-          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER" }));
-      return NextResponse.json({ error: "This provider could not complete a valid nutrition estimate. Try fewer photos or select Gemini.",
-        code: "AI_INVALID_NUTRITION" }, { status: 502 });
+          error instanceof Error && error.name === "ZodError" ? "SCHEMA" : "OTHER",
+        ...(cloudflareReason ? { reason: cloudflareReason } : {}) }));
+      return NextResponse.json({
+        error: selectedProviderId === "cloudflare"
+          ? "Cloudflare could not produce a complete nutrition estimate for this photo. Try a clearer image or select another provider."
+          : "This provider could not complete a valid nutrition estimate. Try a clearer photo or select another provider.",
+        code: "AI_INVALID_NUTRITION",
+      }, { status: 502 });
     }
     console.error(
       "Gemini food analysis failed."

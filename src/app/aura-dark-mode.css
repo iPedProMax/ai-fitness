@@ -1,0 +1,35 @@
+/* AURA Nightfall: original indigo-ink surfaces with a luminous orchid accent. */
+html[data-aura-theme="dark"] {
+  color-scheme:dark; --background:#151625; --foreground:#f2f0fc;
+  --aura-bg:#151625; --aura-ink:#f2f0fc; --aura-subtle:#bcbad0;
+  --aura-paper:#23243a; --aura-iris:#c6b7ff; --aura-iris-deep:#9a8aee;
+  --aura-line:#404159; --aura-raised:8px 9px 23px #0c0d19,-6px -7px 21px #2c2d45;
+  --aura-pressed:inset 4px 4px 8px #131421,inset -3px -3px 8px #31324b;
+  background:#151625 !important;
+}
+html[data-aura-theme="dark"] body { background:#151625 !important;color:#f2f0fc !important; }
+html[data-aura-theme="dark"] body::before {
+  background:radial-gradient(ellipse 70% 40% at 95% 4%,#55458455,transparent 70%),
+    radial-gradient(ellipse 50% 30% at 1% 98%,#79476035,transparent 70%);
+}
+html[data-aura-theme="dark"] [class~="bg-slate-50"],html[data-aura-theme="dark"] [class~="bg-zinc-950"] { background:#151625 !important;color:#f2f0fc !important; }
+html[data-aura-theme="dark"] [class~="bg-white"],html[data-aura-theme="dark"] [class~="bg-zinc-900"],html[data-aura-theme="dark"] [class~="bg-white/95"] { background:#23243a !important;color:#f2f0fc !important; }
+html[data-aura-theme="dark"] [class~="bg-slate-100"],html[data-aura-theme="dark"] [class~="bg-zinc-800"] { background:#2c2c45 !important; }
+html[data-aura-theme="dark"] [class~="bg-emerald-50"],html[data-aura-theme="dark"] [class~="bg-emerald-100"] { background:#352f53 !important; }
+html[data-aura-theme="dark"] [class~="border-slate-200"],html[data-aura-theme="dark"] [class~="border-slate-300"],html[data-aura-theme="dark"] [class~="border-white/10"] { border-color:#41415b !important; }
+html[data-aura-theme="dark"] [class~="text-slate-900"],html[data-aura-theme="dark"] [class~="text-slate-800"],html[data-aura-theme="dark"] [class~="text-slate-700"],html[data-aura-theme="dark"] [class~="text-zinc-950"] { color:#f2f0fc !important; }
+html[data-aura-theme="dark"] [class~="text-slate-600"],html[data-aura-theme="dark"] [class~="text-slate-500"],html[data-aura-theme="dark"] [class~="text-slate-400"],html[data-aura-theme="dark"] [class~="text-zinc-400"],html[data-aura-theme="dark"] [class~="text-zinc-500"] { color:#bcbad0 !important; }
+html[data-aura-theme="dark"] [class~="text-emerald-700"],html[data-aura-theme="dark"] [class~="text-emerald-600"],html[data-aura-theme="dark"] [class~="text-emerald-400"] { color:#c6b7ff !important; }
+html[data-aura-theme="dark"] [class~="bg-amber-50"] {background:#413527 !important;}
+html[data-aura-theme="dark"] [class~="text-amber-900"],html[data-aura-theme="dark"] [class~="text-amber-800"],html[data-aura-theme="dark"] [class~="text-amber-700"] {color:#ffdea9 !important;}
+html[data-aura-theme="dark"] [class~="bg-red-50"] {background:#402b36 !important;}
+html[data-aura-theme="dark"] [class~="text-red-700"],html[data-aura-theme="dark"] [class~="text-red-800"] {color:#ffbac7 !important;}
+html[data-aura-theme="dark"] [class~="bg-slate-900"],html[data-aura-theme="dark"] [class~="bg-emerald-600"],html[data-aura-theme="dark"] [class~="bg-emerald-500"] {background:linear-gradient(135deg,#8f7dda,#50418e) !important;color:#fff !important;}
+html[data-aura-theme="dark"] [class~="bg-slate-900"] :is(span,p,h1,h2,h3) {color:#fff !important;}
+html[data-aura-theme="dark"] .aura-sidebar {background:linear-gradient(160deg,#24253b,#1b1c30) !important;box-shadow:8px 0 32px #09091777 !important;}
+html[data-aura-theme="dark"] .aura-header {background:#23243aec !important;box-shadow:0 5px 24px #0b0c1970 !important;}
+html[data-aura-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select) {background:#191a2c !important;color:#f2f0fc !important;border-color:#45445d !important;box-shadow:var(--aura-pressed);}
+html[data-aura-theme="dark"] :is(input,textarea)::placeholder {color:#a7a5c1 !important;}
+.aura-theme-control {display:inline-flex;align-items:center;gap:4px;border:1px solid var(--aura-line);border-radius:15px;padding:6px 10px;background:var(--aura-paper);color:var(--aura-ink);font-size:12px;font-weight:600;box-shadow:var(--aura-pressed);}
+.aura-theme-control select {appearance:none !important;background:transparent !important;color:inherit !important;box-shadow:none !important;border:0 !important;outline-offset:4px;padding:1px 2px !important;}
+.aura-theme-control option {background:var(--aura-paper);color:var(--aura-ink);}

@@ -2,9 +2,15 @@
 export function isProtectedAppPage(pathname: string): boolean {
   return (
     pathname === "/" ||
+    pathname === "/coach" ||
+    pathname.startsWith("/coach/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/meals" ||
+    pathname === "/barcode" ||
+    pathname === "/recipes" ||
     pathname.startsWith("/meals/") ||
     pathname === "/activities" ||
     pathname.startsWith("/activities/") ||
@@ -12,6 +18,8 @@ export function isProtectedAppPage(pathname: string): boolean {
     pathname.startsWith("/goals/") ||
     pathname === "/reports" ||
     pathname.startsWith("/reports/") ||
+    pathname === "/foods" ||
+    pathname.startsWith("/foods/") ||
     pathname === "/settings" ||
     pathname.startsWith("/settings/")
   );

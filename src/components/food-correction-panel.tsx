@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { FoodAnalysis } from "@/lib/food-analysis";
+import { foodAnalysisSchema, type FoodAnalysis } from "@/lib/food-analysis";
+import { ADVANCED_NUTRIENT_FIELDS, type AdvancedNutrientKey } from "@/lib/advanced-nutrients";
 import { applyFoodCorrection, type FoodCorrection } from "@/lib/food-correction";
 
 type Props = {
@@ -18,7 +19,7 @@ const numbers: { key: Field; label: string; unit: string }[] = [
   { key: "fat", label: "Fat", unit: "g" },
 ];
 
-type Draft = Record<Field, string> & { name: string };
+type Draft = Record<Field, string> & { name: string; advanced: Partial<Record<AdvancedNutrientKey, string>> };
 function initialDraft(food: FoodAnalysis["foods"][number]): Draft {
   return {
     name: food.name,
@@ -27,6 +28,7 @@ function initialDraft(food: FoodAnalysis["foods"][number]): Draft {
     protein: "",
     carbs: "",
     fat: "",
+    advanced: {},
   };
 }
 
@@ -69,11 +71,28 @@ export function FoodCorrectionPanel({ analysis, onApply }: Props) {
         name: draft.name,
         ...values,
       });
-      if (updated === analysis) {
+      if (updated === analysis && !ADVANCED_NUTRIENT_FIELDS.some(field => draft.advanced[field.key]?.trim())) {
         setError("Change the name or enter at least one value before applying.");
         return;
       }
-      onApply(updated);
+      // Record only values deliberately entered. Blank fields preserve existing readings.
+      const selected = updated.foods[selectedIndex];
+      if (!selected) throw new Error("Food selection changed. Retry.");
+      const advanced = { ...(selected.advancedNutrients ?? {}) };
+      for (const field of ADVANCED_NUTRIENT_FIELDS) {
+        const raw = draft.advanced[field.key]?.trim();
+        if (!raw) continue;
+        const value = Number(raw);
+        const limit = field.unit === "mg" ? 100000 : 1000;
+        if (!Number.isFinite(value) || value < 0 || value > limit) {
+          setError(field.label + " must be a valid non-negative value.");
+          return;
+        }
+        advanced[field.key] = value;
+      }
+      const next = foodAnalysisSchema.parse({ ...updated, foods: updated.foods.map((food,i) => i===selectedIndex
+        ? { ...food, ...(Object.keys(advanced).length ? { advancedNutrients: advanced } : {}) } : food) });
+      onApply(next);
       setExpanded(false);
       setError(null);
       setNotice("Food correction applied. Review the meal total before saving.");
@@ -121,6 +140,21 @@ export function FoodCorrectionPanel({ analysis, onApply }: Props) {
               </label>
             ))}
           </div>
+          <details className="rounded-xl border border-amber-200 bg-white p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-emerald-700">More nutrition from a label (optional)</summary>
+            <p className="mt-2 text-xs text-slate-600">These values are not guessed from the photo. Enter the amount for the serving you actually consumed; blank keeps the current reading.</p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {ADVANCED_NUTRIENT_FIELDS.map(field => (
+                <label key={field.key} className="text-xs font-medium text-slate-800">{field.label} ({field.unit})
+                  <input type="number" min="0" max={field.unit === "mg" ? 100000 : 1000} step="any"
+                    value={draft.advanced[field.key] ?? ""}
+                    placeholder={analysis.foods[selectedIndex]?.advancedNutrients?.[field.key] === undefined ? "Unknown" : String(analysis.foods[selectedIndex]?.advancedNutrients?.[field.key])}
+                    onChange={event => setDraft(current => current ? { ...current, advanced: { ...current.advanced, [field.key]: event.target.value } } : current)}
+                    className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
+                </label>
+              ))}
+            </div>
+          </details>
           <p className="text-xs leading-5 text-amber-900">
             Only the food name is required. Leave numeric fields blank to keep the current values.
             Changing the food name or weight does not recalculate calories or macros.
