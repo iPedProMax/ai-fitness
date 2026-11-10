@@ -55,15 +55,15 @@ export function AuraFloatingCoach() {
       const request = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, model, history, useSavedData: personalize }) };
       const response = model === "ollama-local" ? await fetch("/api/coach/local", request) : await submitAiRequest("/api/coach/chat", request, { modelId: model });
       const data = await response.json();
-      if (!response.ok || typeof data.reply !== "string") throw new Error(typeof data.error === "string" ? data.error : "AURA is temporarily unavailable.");
+      if (!response.ok || typeof data.reply !== "string") throw new Error(typeof data.error === "string" ? data.error : "Coach FONZ is temporarily unavailable.");
       setMessages(prev => [...prev, { role: "you", text: message }, { role: "aura", text: data.reply }]);
       setDraft("");
     } catch (issue) { setError(issue instanceof Error ? issue.message : "Could not send your message."); }
     finally { setSending(false); }
   }
   return <div className="wellness-chat-root">
-    {open && <section data-fonz-panel="true" aria-label="Quick AURA coach chat" className="wellness-chat-panel" role="dialog" aria-modal="false">
-      <div className="wellness-chat-header"><div><p className="text-base font-extrabold">✦ Coach FONZ</p><p className="text-xs opacity-85">Your friendly wellness companion</p></div><button type="button" aria-label="Close AURA chat" onClick={() => setOpen(false)} className="wellness-chat-close">✕</button></div>
+    {open && <section data-fonz-panel="true" aria-label="Quick Coach FONZ chat" className="wellness-chat-panel" role="dialog" aria-modal="false">
+      <div className="wellness-chat-header"><div><p className="text-base font-extrabold">✦ Coach FONZ</p><p className="text-xs opacity-85">Your friendly wellness companion</p></div><button type="button" aria-label="Close Coach FONZ chat" onClick={() => setOpen(false)} className="wellness-chat-close">✕</button></div>
       <div ref={scrollRef} role="log" aria-live="polite" aria-relevant="additions text" className="wellness-chat-messages">
         {messages.map((msg, i) => <p data-fonz-speaker={["you", "user"].includes(String(msg.role)) ? "you" : "coach"} key={i} className={`wellness-chat-bubble ${msg.role === "you" ? "wellness-from-user" : "wellness-from-aura"}`}>{msg.text}</p>)}
       </div>
@@ -78,7 +78,7 @@ export function AuraFloatingCoach() {
           <label htmlFor="mini-aura-message" className="sr-only">Ask Coach FONZ</label>
           <textarea ref={inputRef} id="mini-aura-message" rows={2} maxLength={650} value={draft} onChange={e => setDraft(e.target.value)} placeholder="What should I eat next?" className="w-full resize-none p-3 text-sm" />
           {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
-          <button type="submit" disabled={!chosenEnabled || sending || draft.trim().length < 3} className="wellness-send w-full rounded-xl px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{sending ? "AURA is thinking…" : chosenEnabled ? "Send message ↗" : "Select an available provider"}</button>
+          <button type="submit" disabled={!chosenEnabled || sending || draft.trim().length < 3} className="wellness-send w-full rounded-xl px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Coach FONZ is thinking…" : chosenEnabled ? "Send message ↗" : "Select an available provider"}</button>
         </form>
         <p className="text-[10px] leading-4 opacity-65">Cloud messages use your existing coach allowance. No paid fallback. Tips are free. Not medical advice.</p>
         <Link href="/coach" onClick={() => setOpen(false)} className="block text-center text-xs font-bold underline underline-offset-4">Open full AI Coach ↗</Link>

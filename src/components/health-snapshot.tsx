@@ -37,7 +37,7 @@ export async function HealthSnapshot() {
         <h2 id="health-snapshot-heading" className="text-xl font-bold">Your health snapshot</h2>
         <p className="mt-1 text-sm text-slate-500">Simple facts from your own logs. No health score or diagnosis.</p>
       </div>
-      <Link href="/coach" className="text-sm font-bold text-emerald-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-emerald-600">Ask AURA</Link>
+      <Link href="/coach" className="text-sm font-bold text-emerald-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-emerald-600">Ask Coach FONZ</Link>
     </div>
     <div className="grid gap-4 sm:grid-cols-3">
       {cards.map(card => <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -52,7 +52,7 @@ export async function HealthSnapshot() {
     <div className="mt-4 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
       <p className="font-semibold text-slate-900">A small tip for today</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">{coachDailyNudge(summary)}</p>
-      <p className="mt-2 text-xs text-slate-500">Based on saved records, not a medical recommendation. Personalized AI replies are optional inside AURA.</p>
+      <p className="mt-2 text-xs text-slate-500">Based on saved records, not a medical recommendation. Personalized AI replies are optional inside Coach FONZ.</p>
     </div>
   </section>;
 }
