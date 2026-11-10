@@ -34,7 +34,7 @@ export default async function SignUpPage({
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8 shadow-2xl">
         <div className="mb-8">
           <p className="mb-2 text-sm font-medium text-emerald-400">
-            AI Fitness
+            Khalories AI
           </p>
 
           <h1 className="text-3xl font-bold tracking-tight">
