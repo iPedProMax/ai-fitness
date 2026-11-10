@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from "react";
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { FoodAnalysis } from "@/lib/food-analysis";
 import { analyzeFoodText } from "@/lib/analyze-food-text";
 import type { AiModelStatus } from "@/lib/ai/model-catalog";
 import { isTextAiReady } from "@/lib/ai/text-readiness";
 import { makeManualFoodAnalysis, type ManualFoodInput } from "@/lib/manual-food";
+import { FoodSmartSearch } from "@/components/food-smart-search";
+import { nutritionForGrams, type CatalogFood } from "@/lib/open-food-facts";
+import { suggestedServings } from "@/lib/serving-options";
 import { foodEmoji } from "@/lib/food-emoji";
+import { QuickNutritionCalculator, type QuickNutritionSelection } from "@/components/quick-nutrition-calculator";
+import { findQuickFoodById, quickNutrition } from "@/lib/quick-nutrition-calculator";
+import { ManualFruitSuggestions } from "@/components/manual-fruit-suggestions";
+import { findManualFruitById, manualFruitNutritionForGrams, type ManualFruit } from "@/lib/manual-fruit-catalog";
 import { matchAiReportedConfidence } from "@/lib/manual-ai-confidence";
 import { findNutritionReferenceWarnings } from "@/lib/nutrition-reference-review";
 import { findFoodContextWarnings } from "@/lib/food-context-review";
@@ -72,17 +79,20 @@ type Props = {
   onResult: (result: FoodAnalysis) => void;
   onReset: () => void;
   providerId?: AiProviderChoice;
+  aiProviderPicker?: ReactNode;
 };
 
-export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props) {
+export function LogFoodPanel({ onResult, onReset, providerId = "gemini", aiProviderPicker }: Props) {
   const [items, setItems] = useState<ManualFoodInput[]>([emptyItem()]);
   const [description, setDescription] = useState("");
+  const [tool, setTool] = useState<"find" | "calculator" | "details" | "ai">("find");
   const [aiAssisted, setAiAssisted] = useState(false);
   const [modelConfidences, setModelConfidences] = useState<(number | null)[]>([]);
   const [working, setWorking] = useState(false);
   const [pendingPortions, setPendingPortions] = useState<{ prompt: string; questions: PortionQuestion[] } | null>(null);
   const [portionAnswers, setPortionAnswers] = useState<Record<string, PortionAnswer>>({});
   const [error, setError] = useState<string | null>(null);
+  const [smartFoodNotice, setSmartFoodNotice] = useState("");
   const [providerStatuses, setProviderStatuses] = useState<AiModelStatus[] | null>(null);
   const [localOllamaReady, setLocalOllamaReady] = useState(false);
   useEffect(() => {
@@ -117,10 +127,67 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
     setPendingPortions(null);
     setPortionAnswers({});
     onReset();
-    setItems((current) => current.map((item, i) => i === index ? { ...item, [key]: value } : item));
+    setItems((current) => current.map((item, i) => {
+      if (i !== index) return item;
+      const next = { ...item, [key]: value } as ManualFoodInput & { _fruitSourceId?: string; _quickFoodId?: string };
+      if (key === "grams" && next._quickFoodId) {
+        const reference = findQuickFoodById(next._quickFoodId);
+        const enteredGrams = Number(value);
+        const recalculated = reference && value.trim() && Number.isFinite(enteredGrams) && enteredGrams > 0 && enteredGrams <= 5000
+          ? quickNutrition(reference, enteredGrams, "g") : null;
+        next.calories = recalculated ? toTextNumber(recalculated.calories) : "";
+        next.protein = recalculated ? toTextNumber(recalculated.protein) : "";
+        next.carbs = recalculated ? toTextNumber(recalculated.carbs) : "";
+        next.fat = recalculated ? toTextNumber(recalculated.fat) : "";
+        next.fiberG = recalculated && recalculated.fiberG !== null ? toTextNumber(recalculated.fiberG) : "";
+        next.sugarG = recalculated && recalculated.sugarG !== null ? toTextNumber(recalculated.sugarG) : "";
+      } else if (key === "grams" && next._fruitSourceId) {
+        const fruit = findManualFruitById(next._fruitSourceId);
+        const grams = Number(value);
+        const scaled = fruit && value.trim() && Number.isFinite(grams) && grams > 0 && grams <= 5000
+          ? manualFruitNutritionForGrams(fruit, grams) : null;
+        next.calories = scaled ? toTextNumber(scaled.calories) : "";
+        next.protein = scaled ? toTextNumber(scaled.protein) : "";
+        next.carbs = scaled ? toTextNumber(scaled.carbs) : "";
+        next.fat = scaled ? toTextNumber(scaled.fat) : "";
+        next.fiberG = scaled && scaled.fiberG !== null ? toTextNumber(scaled.fiberG) : "";
+        next.sugarG = scaled && scaled.sugarG !== null ? toTextNumber(scaled.sugarG) : "";
+      } else if (key !== "grams") {
+        // The user changed the reference value; future weight changes must not overwrite it.
+        delete next._fruitSourceId;
+        delete next._quickFoodId;
+      }
+      return next;
+    }));
     // A changed value is no longer the original AI estimate.
     setModelConfidences((current) => current.map((score, i) => i === index ? null : score));
     setError(null);
+  }
+
+  function chooseManualFruit(index: number, fruit: ManualFruit) {
+    const oldWeight = Number(items[index]?.grams);
+    const grams = items[index]?.grams.trim() && Number.isFinite(oldWeight) && oldWeight > 0 && oldWeight <= 5000
+      ? oldWeight : 100;
+    const nutrition = manualFruitNutritionForGrams(fruit, grams);
+    const replacement: ManualFoodInput & { _fruitSourceId?: string } = {
+      ...emptyItem(),
+      _fruitSourceId: fruit.id,
+      name: fruit.name,
+      grams: toTextNumber(grams),
+      calories: toTextNumber(nutrition.calories),
+      protein: toTextNumber(nutrition.protein),
+      carbs: toTextNumber(nutrition.carbs),
+      fat: toTextNumber(nutrition.fat),
+      ...(nutrition.fiberG !== null ? { fiberG: toTextNumber(nutrition.fiberG) } : {}),
+      ...(nutrition.sugarG !== null ? { sugarG: toTextNumber(nutrition.sugarG) } : {}),
+    };
+    // Only replace the row explicitly chosen by the user; leave every other food untouched.
+    onReset();
+    setPendingPortions(null);
+    setPortionAnswers({});
+    setError(null);
+    setItems(current => current.map((row, i) => i === index ? replacement : row));
+    setModelConfidences(current => current.map((score, i) => i === index ? null : score));
   }
 
   function handleReview(event: FormEvent<HTMLFormElement>) {
@@ -188,6 +255,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
       setItems(next);
       setModelConfidences(matchAiReportedConfidence(next, estimate.foods));
       setAiAssisted(true);
+      setTool("details");
     } catch (issue) {
 
       setError(issue instanceof Error ? issue.message : "AI estimation failed.");
@@ -220,11 +288,90 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
   }
   const calorieEntriesMissing = items.some(food => !food.calories.trim());
   const ambiguousPortions = /\b(dab|little|some|handful|spoonful|splash|pinch|few|small amount)\b/i.test(description);
+  function selectSmartFood(food: CatalogFood, source: string) {
+    // A user may have typed "Nissin" into the first row already. Replace that
+    // *unfinished* row instead of appending a duplicate food; never overwrite entered nutrients.
+    const first = items[0];
+    const unfinished = items.length === 1 && ["calories", "protein", "carbs", "fat", "fiberG", "sugarG", "sodiumMg", "addedSugarG", "cholesterolMg", "potassiumMg", "calciumMg", "ironMg", "vitaminDMcg"].every(key =>
+      !String(first[key as keyof ManualFoodInput] ?? "").trim()
+    );
+    if (!unfinished && items.length >= 10) {
+      setError("Your meal already contains 10 foods. Remove one before selecting another product.");
+      return;
+    }
+    const preferred = suggestedServings(food)[0]?.grams ?? 100;
+    const normalAmount = Number.isFinite(preferred) && preferred > 0 && preferred <= 2000 ? preferred : 100;
+    const typedWeight = Number(first?.grams ?? "");
+    const amount = unfinished && first.grams.trim() && typedWeight > 0 && typedWeight <= 2000 ? typedWeight : normalAmount;
+    const suggested: ManualFoodInput = nutritionForGrams(food, amount);
+    setItems(current => unfinished ? [suggested] : [...current, suggested]);
+    setModelConfidences(current => unfinished ? [null] : [...current, null]);
+    setPendingPortions(null);
+    setPortionAnswers({});
+    setError(null);
+    onReset();
+    const known = [suggested.calories, suggested.protein, suggested.carbs, suggested.fat].filter(v => v.trim().length > 0).length;
+    setSmartFoodNotice(`${food.name} added from ${source}. ${known}/4 main nutrition fields available; missing nutrients remain blank. Review the serving weight and package label before logging. No AI credits used.`);
+    setTool("details");
+  }
+
+  function selectQuickNutrition(selection: QuickNutritionSelection): boolean {
+    const first = items[0];
+    const unfinished = items.length === 1 && ["calories", "protein", "carbs", "fat", "fiberG", "sugarG", "sodiumMg", "addedSugarG", "cholesterolMg", "potassiumMg", "calciumMg", "ironMg", "vitaminDMcg"].every(key =>
+      !String(first[key as keyof ManualFoodInput] ?? "").trim()
+    );
+    if (!unfinished && items.length >= 10) {
+      setError("Your meal already has 10 foods. Remove one before adding another reference food.");
+      return false;
+    }
+    const entry: ManualFoodInput & { _quickFoodId?: string } = {
+      ...emptyItem(),
+      _quickFoodId: selection.food.id,
+      name: selection.food.name,
+      grams: toTextNumber(selection.grams),
+      calories: toTextNumber(selection.calories),
+      protein: toTextNumber(selection.protein),
+      carbs: toTextNumber(selection.carbs),
+      fat: toTextNumber(selection.fat),
+      ...(selection.fiberG !== null ? { fiberG: toTextNumber(selection.fiberG) } : {}),
+      ...(selection.sugarG !== null ? { sugarG: toTextNumber(selection.sugarG) } : {}),
+    };
+    setItems(current => unfinished ? [entry] : [...current, entry]);
+    setModelConfidences(current => unfinished ? [null] : [...current, null]);
+    setPendingPortions(null);
+    setPortionAnswers({});
+    setError(null);
+    onReset();
+    setSmartFoodNotice("0 AI credits. " + selection.food.name + " added from a per-100 g nutrition reference. Edit grams to recalculate, or edit nutrients to override the reference. Check the food preparation before logging.");
+    setTool("details");
+    return true;
+  }
+
   const inputClass = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100";
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <h3 className="text-lg font-semibold">Manual / AI Food Entry</h3>
-      <p className="mt-1 text-sm text-slate-500">Enter what you know. AI can fill missing details, but it's optional.</p>
+      <h3 className="text-lg font-extrabold text-[#073d2b]">Manual food entry</h3>
+      <p className="mt-1 text-sm text-slate-600">Choose a tool below. Your food entries stay saved while you switch.</p>
+      <div className="k-manual-tools-tabs mt-4 grid grid-cols-2 gap-1 rounded-2xl border border-[#e3ebdf] bg-[#eef3e9] p-1 sm:grid-cols-4" role="group" aria-label="Manual logging tools">
+        {([ ["find", "Find Food"], ["calculator", "Calculator"], ["details", "Enter Details"], ["ai", "AI Estimate"] ] as const).map(([id,label]) => (
+          <button key={id} type="button" aria-pressed={tool === id} onClick={() => setTool(id)}
+            className={"min-h-11 cursor-pointer rounded-xl px-3 py-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:text-sm " + (tool === id ? "bg-[#076044] text-white shadow-sm" : "text-[#476355] hover:bg-white/75 hover:text-[#073d2b]")}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {tool === "details" && smartFoodNotice && <p role="status" className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900">{smartFoodNotice}</p>}
+      {tool === "find" && <p className="mt-4 text-xs text-slate-600">Find packaged products and available nutrition references for free. Selecting a result opens Enter Details.</p>}
+      {tool === "find" && (
+      <div className="mt-4 space-y-2">
+        <FoodSmartSearch mode="manual" onSelect={selectSmartFood} />
+        {smartFoodNotice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900">{smartFoodNotice}</p>}
+      </div>
+      )}
+      {tool === "calculator" && <QuickNutritionCalculator onUse={selectQuickNutrition} />}
+      {tool === "ai" && (
+        <div className="mt-4 space-y-3" aria-label="Optional Text AI estimation">
+          {aiProviderPicker}
       <div className="mt-5 space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
         <label className="block text-sm font-semibold text-slate-700">
           Describe your meal (optional)
@@ -318,11 +465,14 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
           </div>
         )}
       </div>
-      <form onSubmit={handleReview} className="mt-5 space-y-4">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px] lg:items-start">
+        </div>
+      )}
+      {tool === "details" && (
+      <form onSubmit={handleReview} className="mt-5 min-w-0 space-y-4">
+        <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(240px,0.64fr)] 2xl:items-start">
           <div className="min-w-0 space-y-4">
         {items.map((item, index) => (
-          <fieldset key={index} className="rounded-xl border border-slate-200 p-3">
+          <fieldset key={index} className="min-w-0 rounded-xl border border-slate-200 p-3 sm:p-4">
             <legend className="px-1 text-sm font-semibold">Food {index + 1}</legend>
             {modelConfidences[index] != null && (
               <p className="mb-3 text-xs text-violet-700">
@@ -336,7 +486,12 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
             <label className="block text-xs font-medium text-slate-600">Food name (required)
               <input required maxLength={120} value={item.name} onChange={(event) => updateItem(index, "name", event.target.value)} placeholder="e.g. Grilled bangus" className={inputClass} />
             </label>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+             <ManualFruitSuggestions
+               query={item.name}
+               selectedId={(item as ManualFoodInput & { _fruitSourceId?: string })._fruitSourceId}
+               onChoose={(fruit) => chooseManualFruit(index, fruit)}
+             />
+            <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               {([
                 ["grams", "Serving weight (g, optional)"],
                 ["calories", "Calories (kcal)"],
@@ -380,7 +535,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
           <button type="button" onClick={() => { onReset(); setItems((current) => [...current, emptyItem()]); setModelConfidences(current => [...current, null]); }} className="text-sm font-semibold text-emerald-700 hover:underline">+ Add another food</button>
         )}
           </div>
-          <aside aria-label="Live nutrition summary" className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5 lg:sticky lg:top-24">
+          <aside aria-label="Live nutrition summary" className="min-w-0 rounded-2xl border border-violet-200 bg-violet-50/60 p-4 sm:p-5 2xl:sticky 2xl:top-24">
             <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Live nutrition summary</p>
             <p className="mt-3 text-3xl font-bold text-slate-900">{Math.round(knownCalories)} <span className="text-sm font-medium text-slate-600">kcal entered</span></p>
             <p className="mt-1 text-xs text-slate-500">Only includes calories entered above; no missing values are treated as confirmed zero.</p>
@@ -429,6 +584,7 @@ export function LogFoodPanel({ onResult, onReset, providerId = "gemini" }: Props
         <p className="text-xs leading-5 text-slate-500">Food name and calories are needed to save (or enter all three macros to estimate calories). Blank macros stay Unknown, not 0 g.</p>
         {aiAssisted && <p className="text-xs text-emerald-700">AI suggested nutrition values; review and correct them before saving.</p>}
       </form>
+      )}
       {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     </section>
   );

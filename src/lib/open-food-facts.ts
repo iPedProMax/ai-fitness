@@ -25,6 +25,18 @@ function nutrient(value: unknown): number | null {
 function label(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0,max) : "";
 }
+/** Prefer OFF normalized per-100g; use its per-serving numbers only when the
+ *  label has an explicit gram/mL weight. Never infer a weight from "1 cup".
+ */
+function servingWeight(p: Record<string, unknown>): number | null {
+  const normalized = nutrient(p.serving_quantity);
+  if (normalized !== null && normalized >= 1 && normalized <= 2000) return normalized;
+  const serving = typeof p.serving_size === "string" ? p.serving_size : "";
+  const match = serving.match(/(?:^|[^\da-z])(\d+(?:[.,]\d+)?)\s*(?:g|ml)\b/i);
+  if (!match) return null;
+  const n = Number(match[1].replace(",", "."));
+  return Number.isFinite(n) && n >= 1 && n <= 2000 ? n : null;
+}
 export function parseOpenFoodFactsProduct(input: unknown): CatalogFood | null {
   if (!input || typeof input !== "object") return null;
   const p = input as Record<string, unknown>;
@@ -32,12 +44,20 @@ export function parseOpenFoodFactsProduct(input: unknown): CatalogFood | null {
   const barcode = label(p.code,14);
   const name = label(p.product_name_en || p.product_name,110);
   if (!validBarcode(barcode) || !name) return null;
-  let calories = nutrient(n["energy-kcal_100g"]);
+  const grams = servingWeight(p);
+  const servingTo100g = (key: string): number | null => {
+    if (grams === null) return null;
+    const perServing = nutrient(n[`${key}_serving`]);
+    if (perServing === null) return null;
+    return Math.round(perServing * 100 / grams * 100) / 100;
+  };
+  let calories = nutrient(n["energy-kcal_100g"]) ?? servingTo100g("energy-kcal");
   if (calories === null) {
-    const kj = nutrient(n["energy-kj_100g"]);
+    const kj = nutrient(n["energy-kj_100g"]) ?? nutrient(n["energy_100g"]) ?? servingTo100g("energy-kj") ?? servingTo100g("energy");
     calories = kj !== null ? Math.round((kj / 4.184) * 10) / 10 : null;
   }
-  const fromG=(key:string):number|null=>nutrient(n[key]);
+  const fromG=(key:string):number|null=>
+    nutrient(n[key]) ?? (key.endsWith("_100g") ? servingTo100g(key.slice(0,-5)) : null);
   // OFF normalized fields are grams per 100g for minerals, sodium and cholesterol.
   const mgFromG=(key:string):number|null=>{const v=fromG(key);return v===null?null:Math.round(v*100000)/100;};
   const advanced:AdvancedNutrients={};
@@ -65,9 +85,9 @@ export function parseOpenFoodFactsProduct(input: unknown): CatalogFood | null {
     servingDescription: label(p.serving_size,80),
     packageDescription: label(p.quantity,80),
     calories100g:calories,
-    protein100g:nutrient(n.proteins_100g),
-    carbs100g:nutrient(n.carbohydrates_100g),
-    fat100g:nutrient(n.fat_100g),
+    protein100g:fromG("proteins_100g"),
+    carbs100g:fromG("carbohydrates_100g"),
+    fat100g:fromG("fat_100g"),
     ...(Object.keys(advanced).length ? {advancedNutrients100g:advanced} : {}),
   };
 }

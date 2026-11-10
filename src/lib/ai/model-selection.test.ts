@@ -119,9 +119,12 @@ describe("single Gemini model admission", () => {
     expect(reserve).not.toHaveBeenCalled();
   });
 
-  it("accepts Cloudflare for one photo when available", async () => {
-    provider.mockReturnValue({ ...defaultProvider, id: "cloudflare", capabilities: { ...defaultProvider.capabilities, maxImages: 1 } });
-    expect(await selectRequestedAiModel("cloudflare", 1)).toMatchObject({ provider: { id: "cloudflare" } });
+  it("blocks Cloudflare from Photo Scan, but leaves the text adapter available", async () => {
+    const blocked = await selectRequestedAiModel("cloudflare", 1, "vision");
+    expect(blocked.error?.status).toBe(422);
+    expect(provider).not.toHaveBeenCalled();
+    provider.mockReturnValue({ ...defaultProvider, id: "cloudflare" });
+    expect(await selectRequestedAiModel("cloudflare", 0, "text")).toMatchObject({ provider: { id: "cloudflare" } });
     expect(provider).toHaveBeenCalledExactlyOnceWith("cloudflare");
   });
 

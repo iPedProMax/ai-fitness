@@ -70,10 +70,10 @@ export async function DashboardFoodInsights() {
         Some nutrient values are missing{truncated ? " or the latest-200-meals query is capped" : ""}. Recorded totals are incomplete, not confirmed daily intake.
       </p>}
     </>}
-    <p className="mt-4 text-xs leading-5 text-slate-500">Added sugar is different from total sugar. Purine reminders use food names, not measurements of purines or blood uric acid. Values may be user-entered or AI-transcribed; check labels and serving sizes. The general 20% Daily Value guide may not match your personal needs.</p>
+    <p className="mt-4 text-xs leading-5 text-slate-500">Nutrition totals are estimates based on your saved meals, not a diagnosis. Added sugar is different from total sugar. Values may be user-entered or AI-transcribed; check labels and serving sizes. General Daily Value guides may not match your personal needs.</p>
     <div className="mt-2 flex flex-wrap gap-3 text-xs">
       <a className="font-semibold text-emerald-700 underline" href="https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels" target="_blank" rel="noreferrer">FDA nutrition-label guidance</a>
-      <a className="font-semibold text-emerald-700 underline" href="https://rheumatology.org/patients/gout" target="_blank" rel="noreferrer">ACR guidance about gout</a>
+      <a className="font-semibold text-emerald-700 underline" href="https://www.myplate.gov/" target="_blank" rel="noreferrer">Balanced eating basics</a>
     </div>
   </section>;
 }

@@ -70,6 +70,10 @@ test('manual food logging offers Mistral text AI without an analysis call', asyn
   if (await manualButton.count()) await manualButton.click();
   else if (await manualTab.count()) await manualTab.click();
   else throw new Error('Could not locate the Manual input tab on the signed-in Log Food page.');
+  const aiEstimateTool = page.getByRole("group", { name: "Manual logging tools" })
+    .getByRole("button", { name: "AI Estimate", exact: true });
+  await expect(aiEstimateTool).toBeVisible({ timeout: 15_000 });
+  await aiEstimateTool.click();
   const textModel = page.locator('main select').filter({ has: page.locator('option[value="mistral"]') }).first();
   await expect(textModel, 'Manual Text AI must offer Mistral').toBeVisible({ timeout: 15_000 });
   await expect(textModel.locator('option[value="mistral"]')).toBeEnabled();

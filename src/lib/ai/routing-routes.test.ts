@@ -120,7 +120,7 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(getProvider).not.toHaveBeenCalled();
   });
 
-  it.each(["groq", "cloudflare"])("rejects extreme %s macro contradiction rather than saving it", async id => {
+  it.each(["groq"])("rejects extreme %s macro contradiction rather than saving it", async id => {
     const provider = mockProvider(id);
     provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
       ...analysis.foods[0], name: "Rolled oats", calories: 377, protein: 7, carbs: 4, fat: 1,
@@ -134,6 +134,20 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(await response.json()).toMatchObject({ code: "AI_NUTRITION_INCONSISTENT" });
     expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
     expect(provider.generate).toHaveBeenCalledOnce();
+  });
+
+  it.each(["cloudflare", "openrouter", "zai"])("rejects %s photo scanning at the authorization gate", async id => {
+    const provider = mockProvider(id);
+    getProvider.mockReturnValue(provider);
+    const body = new FormData();
+    body.set("model", id);
+    body.append("images", new File(["food"], "food.jpg", { type: "image/jpeg" }));
+    const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(getProvider).not.toHaveBeenCalled();
+    expect(provider.generate).not.toHaveBeenCalled();
   });
 
   it("keeps Gemini's previous handling untouched", async () => {
@@ -162,7 +176,7 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
     expect(data.foods[0].weightSource).toBe("AI_ESTIMATE");
     expect(data.clarifications).toEqual(expect.arrayContaining([expect.objectContaining({ id: "tare_status_0" })]));
   });
-  it.each(["groq", "cloudflare"])("blocks the near-zero oats result from %s", async id => {
+  it.each(["groq"])("blocks the near-zero oats result from %s", async id => {
     const provider = mockProvider(id);
     provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
       ...analysis.foods[0], name: "Quaker Oats Instant Oats", estimatedGrams: 0,
@@ -180,14 +194,14 @@ describe("route fallback credit and security boundaries (mocks only)", () => {
   });
 
   it("still accepts truly zero-calorie water from a photo provider", async () => {
-    const provider = mockProvider("cloudflare");
+    const provider = mockProvider("groq");
     provider.generate.mockResolvedValue({ outputText: JSON.stringify({ ...analysis, foods: [{
       ...analysis.foods[0], name: "Water", estimatedGrams: 250,
       calories: 0, protein: 0, carbs: 0, fat: 0, confidence: 0.8,
     }], totalCalories: 0 }) });
     getProvider.mockReturnValue(provider);
     const body = new FormData();
-    body.set("model", "cloudflare");
+    body.set("model", "groq");
     body.append("images", new File(["water"], "water.jpg", { type: "image/jpeg" }));
     const response = await photo(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
     expect(response.status).toBe(200);

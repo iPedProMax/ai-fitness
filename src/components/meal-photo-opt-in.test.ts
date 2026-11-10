@@ -15,12 +15,14 @@ describe("Save Meal photo opt-in", () => {
     expect(src).not.toContain("Choose which scanned photo to keep");
     expect(src).not.toContain('type="file"');
   });
-  it("starts off and resets every time Save Meal opens", () => {
+  it("checks Save photo by default only if a photo exists, and respects an uncheck", () => {
     const src = read("./add-meal-button.tsx");
-    expect(src).toContain("const [savePhoto, setSavePhoto] = useState(false)");
-    expect(src.slice(src.indexOf("function openConfirmation()"),src.indexOf("async function confirmSave("))).toContain("setSavePhoto(false)");
+    expect(src).toContain("const [savePhoto, setSavePhoto] = useState(photoFiles.length > 0)");
+    expect(src.slice(src.indexOf("function openConfirmation()"), src.indexOf("async function confirmSave("))).toContain("setSavePhoto(photoFiles.length > 0)");
     expect(src).toContain("checked={savePhoto}");
     expect(src).toContain("setSavePhoto(event.target.checked)");
+    expect(src).toContain("if (savePhoto && selectedPhoto)");
+    expect(src).toContain("checked by default; uncheck to skip");
   });
   it("stores only the opted-in first photo in the private compressed format", () => {
     const src = read("./add-meal-button.tsx");
@@ -32,7 +34,10 @@ describe("Save Meal photo opt-in", () => {
   });
   it("uses actual Photo Scanner uploads even when the AI result omits entryMethod", () => {
     const page = read("../app/page.tsx");
-    expect(page).toContain('photoFiles={entryMode === "photo" ? images : []}');
+    // Web-import images are uploaded to Gemini by the user, not captured by Khalories.
+    expect(page).toContain('photoFiles={entryMode === "photo" && photoMethod === "app" ? images : entryMode === "photo" && photoMethod === "web" && webThumbnailFile ? [webThumbnailFile] : []}');
+    expect(page).toContain('onThumbnailChange={setWebThumbnailFile}');
+    expect(page).not.toContain('photoFiles={entryMode === "photo" ? images : []}');
     expect(page).not.toContain('photoFiles={analysis.entryMethod === "PHOTO_AI" ? images : []}');
   });
 });

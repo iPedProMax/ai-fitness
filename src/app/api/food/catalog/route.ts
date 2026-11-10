@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { parseOpenFoodFactsProduct, validBarcode } from "@/lib/open-food-facts";
 import { CATALOG_LIMITS, type CatalogLimitKind } from "@/lib/catalog-limit-policy";
+import { findReviewedPhilippineFoods } from "@/lib/philippine-food-library";
+import { findPhCommunityFood } from "@/lib/ph-community-catalog";
+import { findReferencedBarcode, supplementExactBarcodeFood } from "@/lib/barcode-nutrition-reference";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,8 +43,19 @@ export async function GET(request:Request){
   if(barcode?!validBarcode(barcode):query.length<3||query.length>60||/[\u0000-\u001f]/.test(query))
     return blocked("Enter an 8–14 digit barcode or a search of 3–60 characters.","INVALID_QUERY",400);
   const kind:CatalogLimitKind=barcode?"barcode":"search";
+  // Exact, independently reviewed labels first. No AI credit; no OFF data is copied to this table.
+  const reviewed=await findReviewedPhilippineFoods(kind, barcode || query);
+  if(reviewed.length) return NextResponse.json({foods:reviewed,source:"Khalories Philippine Food Library",license:"Reviewed independent label source",attribution:"Independently curated package/manufacturer nutrition"},{headers:head});
+  // PH-tagged ODbL community records are local and offline; NOT the verified library.
+  // Do not call Open Food Facts or reserve an AI credit if a local match exists.
+  const community=findPhCommunityFood(kind, barcode || query);
+  if(community.length)return NextResponse.json({foods:community.map(supplementExactBarcodeFood),source:"Open Food Facts PH-tagged community (may include cross-referenced nutrients)",license:"ODbL 1.0",attribution:"https://world.openfoodfacts.org/; https://shelfpedia.com/en-ph/data/; https://nutrifoodindex.com/product/supreme-jjampong; https://nutrifoodindex.com/product/nissin-cup-noodles-mini-seafood-flavor"},{headers:head});
+  // Exact barcode reference fallback, never a similar-flavor/name guess.
+  const reference = kind === "barcode" ? findReferencedBarcode(barcode) : null;
+  if(reference)return NextResponse.json({foods:[reference],source:"Community barcode nutrition cross-reference",license:"See linked community source",attribution:reference.nutritionSourceUrl ?? "Community barcode reference"},{headers:head});
+  // Only external calls consume the upstream catalog rate-limit allowance.
   const limited=await authorize(kind);if(limited)return limited;
-  const fields="code,product_name,product_name_en,brands,serving_size,quantity,nutriments";
+  const fields="code,product_name,product_name_en,brands,serving_size,serving_quantity,quantity,nutriments";
   const url=barcode
     ? `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`
     : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=8&fields=${fields}`;
@@ -55,5 +69,5 @@ export async function GET(request:Request){
     const candidates=barcode?(obj.status===1&&obj.product?[obj.product]:[]):(Array.isArray(obj.products)?obj.products.slice(0,8):[]);
     const foods=candidates.map(parseOpenFoodFactsProduct).filter((food):food is NonNullable<typeof food>=>food!==null);
     return NextResponse.json({foods,source:"Open Food Facts",license:"ODbL",attribution:"https://world.openfoodfacts.org/"},{headers:head});
-  }catch{return blocked("Food lookup failed. You can enter the values manually or use photo AI.","UPSTREAM_UNAVAILABLE",503);}
+  }catch{return blocked("Food lookup failed. You can enter the values manually or use the approved Text AI helper.","UPSTREAM_UNAVAILABLE",503);}
 }

@@ -1,0 +1,77 @@
+/* Khalories Log Food design preview -> real app, Phase Z3.9 UI.
+   Scoped to Log Food and its workflow; no algorithm, API or provider behavior changes. */
+:root { --k-lf-pine: #063b2c; --k-lf-forest: #116b4b; --k-lf-leaf: #3f995d; --k-lf-lime: #d5f58e; --k-lf-cream: #f7f9f3; --k-lf-mist: #edf6e8; --k-lf-line: #dce8d8; --k-lf-muted: #65796d; }
+.wellness-sidebar .wellness-brand .k-lf-brand-line { display: inline-block; margin-top: 5px; color:#ebf7ee; font-weight:500; font-size:10px; line-height:1.35; letter-spacing:0; text-transform:none; opacity:1; white-space:normal; }
+.wellness-sidebar .wellness-brand .k-lf-brand-line b { color: var(--k-lf-lime); font-weight:800; }
+.khalories-log-redesign { background:radial-gradient(ellipse at 80% 2%,#f2f8e7 0%,transparent 36%), var(--k-lf-cream) !important; color:#18392b; min-height:100vh; }
+.khalories-log-redesign .k-lf-container { width:100%; max-width:1540px !important; padding-top:34px; padding-bottom:82px; }
+.khalories-log-redesign .wellness-log-header { margin:0 0 21px !important; max-width:none !important; }
+.khalories-log-redesign .wellness-log-header > p:first-child { font-size:11px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; color:var(--k-lf-leaf); margin-bottom:7px; }
+.khalories-log-redesign .wellness-log-header h2 { font-size:clamp(27px,3vw,39px) !important; font-weight:850; letter-spacing:-.045em; color:var(--k-lf-pine); line-height:1.17; }
+.khalories-log-redesign .wellness-log-header > p:last-child { max-width:840px; font-size:13px; color:var(--k-lf-muted); line-height:1.65; }
+.khalories-log-redesign .wellness-log-modes { max-width:none !important; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--k-lf-line); background:#eaf2e5 !important; padding:6px !important; gap:7px !important; border-radius:17px !important; box-shadow:0 3px 12px #204b2c06; margin-bottom:24px !important; }
+.khalories-log-redesign .wellness-log-modes button { min-width:0; cursor:pointer; min-height:48px; white-space:normal; line-height:1.22; border-radius:12px; font-size:13px; transition:background .2s,box-shadow .2s,transform .2s; font-weight:760; }
+.khalories-log-redesign .wellness-log-modes button[aria-pressed="true"] { color:white !important; background:linear-gradient(120deg,#126c4e,#075036) !important; box-shadow:0 4px 14px #075d4130 !important; }
+.khalories-log-redesign .wellness-log-modes button[aria-pressed="false"] { color:#506e5a !important; background:transparent !important; box-shadow:none !important; }
+.khalories-log-redesign .wellness-log-modes button[aria-pressed="false"]:hover { background:#fff9 !important; }
+.khalories-log-redesign :is(button,a,input,textarea,select,summary):focus-visible { outline:2px solid #319f72; outline-offset:2px; }
+.khalories-log-redesign :is(button,a,summary) { cursor:pointer; }
+.khalories-log-redesign button:disabled { cursor:not-allowed; }
+.khalories-workflow-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; align-items:start; gap:24px; }
+.khalories-workflow-primary { min-width:0; }
+.khalories-workflow-primary > div:not(.k-lf-help-stack) { max-width:none !important; width:100%; }
+.khalories-workflow-primary > div:has(#ai-provider-choice) { max-width:none !important; margin:0 0 17px !important; border:1px solid var(--k-lf-line); border-radius:17px; background:white; padding:14px 18px; box-shadow:0 6px 20px #1b49200a; }
+.khalories-workflow-primary #ai-provider-choice { min-height:44px; border-color:#cdddc7; border-radius:11px; background:#fbfcf8; color:#173e2b; font-size:13px; }
+.khalories-workflow-primary :is(section.rounded-3xl, section.rounded-2xl, fieldset.rounded-xl) { border-color:var(--k-lf-line) !important; box-shadow:0 10px 27px #1b42220b,0 1px 3px #1b422205; }
+.khalories-workflow-primary :is(section.rounded-3xl,section.rounded-2xl) { border-radius:20px !important; }
+.khalories-workflow-primary :is(input,textarea,select) { max-width:100%; }
+.khalories-workflow-primary :is(input,textarea):not([type="file"]):not([type="checkbox"]):not([type="radio"]) { border-color:#d4e3d0; background-color:#fbfcf9; color:#153d2a; border-radius:11px; }
+.khalories-workflow-primary :is(input,textarea):not([type="file"]):focus { border-color:#54a677; box-shadow:0 0 0 3px #85c8a726; outline:0; }
+.khalories-workflow-primary :is(button.bg-emerald-600,button.bg-emerald-700,button.bg-slate-900) { background:linear-gradient(120deg,#107452,#085238) !important; border-color:#0c6a49; color:white; box-shadow:0 4px 10px #0a49371a; }
+.khalories-workflow-primary .text-emerald-700 { color:#0c6648; }
+.khalories-workflow-primary :is(button,a).rounded-xl:hover { filter:brightness(.98); }
+.khalories-workflow-primary [class*="bg-emerald-50"] { background-color:#f1f9ed; }
+.khalories-workflow-aside { position:sticky; top:92px; }
+.k-lf-help-stack { display:grid; gap:15px; }
+.k-lf-help-card { border-radius:20px; padding:22px 20px; background:linear-gradient(145deg,#fcfef9,#f3f8ed); border:1px solid var(--k-lf-line); box-shadow:0 8px 25px #19462908; }
+.k-lf-help-eyebrow { color:var(--k-lf-leaf); text-transform:uppercase; letter-spacing:.14em; font-size:10px; font-weight:850; margin:0 0 9px; }
+.k-lf-help-card h2 { color:var(--k-lf-pine); line-height:1.2; font-weight:840; font-size:18px; letter-spacing:-.025em; margin:0 0 9px; }
+.k-lf-help-description { color:#62766a; line-height:1.6; font-size:12px; margin:0; }
+.k-lf-help-list { list-style:none; margin:19px 0 0; padding:0; display:grid; gap:19px; }
+.k-lf-help-step { display:grid; grid-template-columns:27px minmax(0,1fr); align-items:start; gap:10px; }
+.k-lf-help-number { height:26px; width:26px; display:grid; place-items:center; background:#dff1d4; border-radius:50%; color:#0d6446; font-size:11px; font-weight:850; }
+.k-lf-help-step strong { color:#213b2c; display:block; font-size:12px; }
+.k-lf-help-step p { color:#708175; font-size:11px; margin:4px 0 0; line-height:1.52; }
+.k-lf-help-tip { padding:18px 20px; background:#fffdf2; border-color:#eee9cf; }
+.k-lf-help-tip-title { font-weight:850; color:#55602f; font-size:13px; }
+.k-lf-help-tip-title span { color:#ccad36; margin-right:6px; }
+.k-lf-help-tip p { color:#6d745b; font-size:12px; line-height:1.6; margin:8px 0 0; }
+.k-lf-help-footer { text-align:center; font-size:10px; color:#869b89; margin:0; }
+.k-lf-help-footer strong { color:#36865d; }
+/* Barcodes: present the existing native scanner / search / review controls as an elegant step-by-step form. */
+.khalories-barcode-flow > section { position:relative; }
+.khalories-barcode-flow > section:first-child { padding:24px !important; }
+.khalories-barcode-flow > section > h2 { font-size:18px; font-weight:850; letter-spacing:-.025em; color:var(--k-lf-pine); }
+.khalories-barcode-flow > section > p { line-height:1.55; }
+.khalories-barcode-flow > section:first-child > div:has(input[type="file"]) { border-color:#cee2cb !important; background:#f5fbf2 !important; }
+.khalories-barcode-flow form { gap:10px; }
+.khalories-barcode-flow form button[type="submit"] { background:#eaf4e7; color:#176645; border:1px solid #c7dfbd; border-radius:11px; padding:11px 16px; font-weight:750; }
+.khalories-barcode-flow section:has(> h2 + p strong) { background:#fff; }
+.khalories-barcode-flow section:has(> h2 + p strong) > p:first-of-type { color:#435b49; }
+.k-lf-verify-action { display:flex; gap:16px; justify-content:space-between; align-items:center; background:linear-gradient(125deg,#f2f9ee,#e8f6e6); border:1px solid #cee6c9; border-radius:15px; padding:15px 16px; }
+.k-lf-verify-action strong { display:block; font-weight:800; font-size:13px; color:#195b3c; }
+.k-lf-verify-action p { margin:4px 0 0; font-size:11px; line-height:1.5; color:#5d7564; }
+.k-lf-verify-action button { white-space:nowrap; flex-shrink:0; border-radius:10px; padding:11px 12px; background:white; border:1px solid #72b189; color:#0c6947; font-size:12px; font-weight:800; box-shadow:0 2px 7px #21613412; }
+.k-lf-verify-action button:hover { background:#f8fff5; }
+/* Manual / recipes / photo — preserve existing data-driven components and make their panels consistent. */
+.khalories-manual-flow { border-radius:21px !important; border-color:var(--k-lf-line) !important; background:white; }
+.khalories-manual-flow fieldset { padding:16px; border-color:#e2ebdf !important; border-radius:15px !important; }
+.khalories-manual-flow legend { color:#0c5137; }
+.khalories-manual-flow aside[aria-label="Live nutrition summary"] { background:linear-gradient(160deg,#f3f9ef,#ecf6e8); border-color:#d7e8d2; color:#244b31; }
+.khalories-manual-flow aside[aria-label="Live nutrition summary"] > p:first-child { color:#278355; }
+.khalories-log-redesign .khalories-workflow-primary section:has(>div h3):not(.khalories-manual-flow) { border-color:var(--k-lf-line); }
+/* Mobile: retain native dropdown for both AI rosters. No custom button-strip picker. */
+@media(max-width:1190px){ .khalories-workflow-grid { grid-template-columns:minmax(0,1fr) 235px; gap:15px; } .k-lf-help-card{padding:17px 15px;} }
+@media(max-width:1000px){ .khalories-workflow-grid { grid-template-columns:minmax(0,1fr); } .khalories-workflow-aside { position:static; } .k-lf-help-stack { grid-template-columns:repeat(2,minmax(0,1fr)); } .k-lf-help-footer { display:none; } .khalories-log-redesign .k-lf-container{padding-top:25px;} }
+@media(max-width:670px){ .khalories-log-redesign .k-lf-container{padding:19px 13px 94px;} .khalories-log-redesign .wellness-log-header{margin-bottom:18px!important;} .khalories-log-redesign .wellness-log-header h2{font-size:27px!important;} .khalories-log-redesign .wellness-log-modes{padding:4px!important;gap:3px!important;margin-bottom:16px!important;} .khalories-log-redesign .wellness-log-modes button{padding:8px 4px;min-height:52px; font-size:10px!important;} .khalories-workflow-primary > div:has(#ai-provider-choice){padding:12px;} .k-lf-help-stack{grid-template-columns:1fr;} .khalories-workflow-aside{display:none;} .khalories-barcode-flow > section:first-child{padding:16px!important;} .k-lf-verify-action{flex-direction:column;align-items:stretch;} .k-lf-verify-action button{width:100%;} .khalories-manual-flow{padding:16px!important;} .khalories-workflow-primary :is(input,select,textarea){font-size:16px;} .khalories-workflow-primary #ai-provider-choice {display:block;width:100%;min-height:46px;} }
+@media(prefers-reduced-motion:reduce){.khalories-log-redesign *{scroll-behavior:auto!important;transition-duration:0s!important;animation-duration:0s!important;}}

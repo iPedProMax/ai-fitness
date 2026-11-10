@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe("photo description travels with exactly one AI request", () => {
-  it.each(["gemini", "groq", "cloudflare"])("sends optional context to %s once", async model => {
+  it.each(["gemini", "groq"])("sends optional context to %s once", async model => {
     const response = await POST(request("70.6 g dry Quaker oats; no milk", model));
     expect(response.status).toBe(200);
     expect(generate).toHaveBeenCalledOnce();
@@ -41,6 +41,33 @@ describe("photo description travels with exactly one AI request", () => {
     expect(context).toHaveLength(1);
     expect(context[0].text).toContain("70.6 g dry Quaker oats; no milk");
     expect(reserve).toHaveBeenCalledExactlyOnceWith("analysis");
+  });
+  it.each(["cloudflare", "openrouter", "zai"])("rejects text-roster provider %s from Photo Scan before consuming credits", async model => {
+    const response = await POST(request("one bowl of rice", model));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_MODEL_UNSUPPORTED" });
+    expect(generate).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("rejects unsupported Z.ai WEBP before spending Khalories AI credits", async () => {
+    const body = new FormData();
+    body.append("model", "zai-vision");
+    body.append("images", new File(["image"], "food.webp", { type: "image/webp" }));
+    const response = await POST(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_IMAGE_FORMAT_UNSUPPORTED" });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(getProvider).not.toHaveBeenCalled();
+  });
+  it("rejects photo exceeding adapter size before Khalories credits", async () => {
+    const body = new FormData();
+    body.append("model", "openrouter-vision");
+    body.append("images", new File([new Uint8Array(3_000_001)], "food.jpg", { type: "image/jpeg" }));
+    const response = await POST(new Request("http://localhost/api/food/analyze", { method: "POST", body }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "AI_IMAGE_TOO_LARGE" });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(getProvider).not.toHaveBeenCalled();
   });
   it("leaves the legacy photo analysis unchanged without a description", async () => {
     expect((await POST(request())).status).toBe(200);

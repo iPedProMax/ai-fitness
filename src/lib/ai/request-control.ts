@@ -9,6 +9,7 @@ import { AiRoutingError } from "./errors";
 import { geminiTokenReservation } from "./gemini-token-budget";
 import { isGeminiModelId } from "./model-catalog";
 import { groqCompletionTokens, groqResponseSchema } from "./providers/groq";
+import { mistralTokenReservation } from "./mistral-token-budget";
 import { checkAiRequestSafety } from "./request-safety";
 import type { AiGenerationRequest, AiGenerationResult, AiProvider } from "./types";
 
@@ -119,6 +120,9 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   if (id === "openrouter" && imageCount > 1) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (id === "zai" && imageCount > 2) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
   if (["siliconflow", "huggingface", "cerebras"].includes(id) && imageCount !== 0) throw new AiRoutingError("NO_COMPATIBLE_PROVIDER");
+  // Mistral sends a compact response schema; reserve against its actual outbound body,
+  // not the larger generic schema that is never transmitted to this provider.
+  if (id === "mistral") return mistralTokenReservation(request);
   const bytes = Buffer.byteLength(JSON.stringify({ input: request.input.map(part =>
     part.type === "text" ? part : { type: "image", mimeType: part.mimeType }),
     responseSchema: id === "groq" ? groqResponseSchema(request.responseSchema, imageCount) : request.responseSchema }), "utf8");
@@ -128,7 +132,7 @@ function extraProviderReservation(id: string, request: AiGenerationRequest): num
   const tokens = id === "groq"
     ? Math.ceil(bytes / 3) + imageCount * 2048 + groqCompletionTokens(imageCount) + 256
     : Math.ceil(bytes * 1.25) + 1024 + 4096 + imageCount * 2048;
-  if (tokens > (id === "groq" ? 7800 : id === "mistral" ? 12000 : id === "ollama-local" ? 16000 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
+  if (tokens > (id === "groq" ? 7800 : id === "ollama-local" ? 16000 : 32768)) throw new AiRoutingError("INPUT_TOO_LARGE");
   return tokens;
 }
 

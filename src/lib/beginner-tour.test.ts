@@ -3,8 +3,8 @@ import { BEGINNER_TOUR_EVENT, beginnerTourSteps, beginnerTourStorageKey, spotlig
 
 describe("Phase U11 beginner tutorial", () => {
   it("guides users through actual log, coach, reports, activities and settings pages", () => {
-    expect(beginnerTourSteps.map(step => step.id)).toEqual(["photo", "manual", "coach-nav", "coach-floating", "coach", "reports", "activities", "settings"]);
-    expect(beginnerTourSteps.map(step => step.path)).toEqual(["/", "/", "/", "/", "/coach", "/reports", "/activities", "/settings"]);
+    expect(beginnerTourSteps.map(step => step.id)).toEqual(["photo", "web-import", "barcode", "manual", "recipes", "meal-history", "coach-nav", "coach-floating", "coach", "reports", "activities", "settings"]);
+    expect(beginnerTourSteps.map(step => step.path)).toEqual(["/", "/", "/", "/", "/", "/meals", "/", "/", "/coach", "/reports", "/activities", "/settings"]);
     expect(beginnerTourSteps.every(step => step.selector && step.title && step.description)).toBe(true);
     expect(BEGINNER_TOUR_EVENT).toBe("khalories:tour:replay");
   });
@@ -12,7 +12,7 @@ describe("Phase U11 beginner tutorial", () => {
     const a = beginnerTourStorageKey("e4b67f18-1234-4b50-a681-afe010123456");
     const b = beginnerTourStorageKey("e4b67f18-1234-4b50-a681-afe010123457");
     expect(a).not.toBe(b);
-    expect(a).toContain("v1:");
+    expect(a).toContain("v2:");
     expect(() => beginnerTourStorageKey("a@example.com")).toThrow();
   });
   it("clamps spotlight to viewport so no negative overlay sizes appear", () => {

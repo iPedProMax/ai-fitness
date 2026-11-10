@@ -111,7 +111,7 @@ export function BeginnerTour() {
       if (!element || !element.getClientRects().length) { setRect(null); return; }
       if (firstTarget) {
         firstTarget = false;
-        element.scrollIntoView({ block: "center", behavior: "smooth" });
+        element.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       }
       const box = element.getBoundingClientRect();
       const current = { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
@@ -120,7 +120,7 @@ export function BeginnerTour() {
       ) ? previous : current);
     };
     measure();
-    const interval = window.setInterval(measure, 250);
+    const interval = window.setInterval(measure, 500);
     window.addEventListener("scroll", measure, true);
     window.addEventListener("resize", measure);
     return () => {
@@ -152,8 +152,8 @@ export function BeginnerTour() {
           <div aria-hidden="true" className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-3xl">{"\u{1F44B}"}</div>
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Your first steps</p>
           <h2 id="khalories-tour-welcome" className="mt-2 text-2xl font-extrabold">Welcome to Khalories AI!</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">Want a quick tour? We'll highlight the real controls for food logging, Coach FONZ, reports, activities, and settings. No analyses or AI credits are used.</p>
-          <p className="mt-3 text-xs text-slate-500">About eight short stops. You can skip at any point and replay it from Settings.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">Want a quick tour? We'll highlight the real controls for Photo Scanner, AI Web Import, barcode, Manual tools, recipes, Meal History, Coach FONZ, reports, activities, and settings. No analyses or AI credits are used.</p>
+          <p className="mt-3 text-xs text-slate-500">About twelve short stops. You can skip at any point and replay it from Settings.</p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">
             <button type="button" onClick={start} className="min-h-11 flex-1 cursor-pointer rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">Start the tour</button>
             <button type="button" onClick={() => finish("skipped")} className="min-h-11 cursor-pointer rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">Skip for now</button>

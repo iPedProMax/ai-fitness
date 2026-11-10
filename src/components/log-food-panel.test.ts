@@ -33,9 +33,12 @@ describe("combined manual and AI food entry", () => {
     expect(result).toHaveLength(3);
     expect(result[2].name).toBe("Banana");
   });
-  it("has a single unified form with optional AI and a review action", () => {
+  it("exposes four manual tools and a review action", () => {
     const source = readFileSync(new URL("./log-food-panel.tsx", import.meta.url), "utf8");
-    expect(source).toContain("Manual / AI Food Entry");
+    expect(source).toContain("Find Food");
+    expect(source).toContain("Calculator");
+    expect(source).toContain("Enter Details");
+    expect(source).toContain("AI Estimate");
     expect(source).not.toContain('setMode("manual")');
     expect(source).toContain("Estimate nutrition with AI");
     expect(source).toContain("foodEmoji(item.name)");

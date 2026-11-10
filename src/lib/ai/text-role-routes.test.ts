@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe("server-side strictly disjoint Vision and Text API rosters", () => {
-  it.each(["gemini", "groq", "cloudflare", "zai", "openrouter"])(
+  it.each(["gemini", "groq"])(
     "Manual AI Input rejects Vision provider %s before provider lookup or credits", async model => {
       const response = await manual(manualRequest(model));
       expect(response.status).toBe(422);
@@ -33,7 +33,7 @@ describe("server-side strictly disjoint Vision and Text API rosters", () => {
       expect(reserve).not.toHaveBeenCalled();
     },
   );
-  it.each(["gemini", "groq", "cloudflare", "zai", "openrouter"])(
+  it.each(["gemini", "groq"])(
     "AURA rejects Vision provider %s before provider lookup or credits", async model => {
       const response = await coach(coachRequest(model));
       expect(response.status).toBe(422);
@@ -48,7 +48,7 @@ describe("server-side strictly disjoint Vision and Text API rosters", () => {
     expect(getProvider).not.toHaveBeenCalled();
     expect(reserve).not.toHaveBeenCalled();
   });
-  it.each(["cerebras", "siliconflow", "huggingface", "mistral", "ollama-local"])(
+  it.each(["cerebras", "siliconflow", "huggingface", "mistral", "ollama-local", "cloudflare", "openrouter", "zai"])(
     "Manual AI Input admits Text provider %s to availability check", async model => {
       const response = await manual(manualRequest(model));
       // No model is configured in this test: the request MUST reach the normal
@@ -59,7 +59,7 @@ describe("server-side strictly disjoint Vision and Text API rosters", () => {
       expect(reserve).not.toHaveBeenCalled();
     },
   );
-  it.each(["cerebras", "siliconflow", "huggingface", "mistral", "ollama-local"])(
+  it.each(["cerebras", "siliconflow", "huggingface", "mistral", "ollama-local", "cloudflare", "openrouter", "zai"])(
     "AURA admits Text provider %s to availability check", async model => {
       const response = await coach(coachRequest(model));
       expect(response.status).toBe(503);

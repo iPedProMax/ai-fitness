@@ -37,8 +37,14 @@ export function personalFoodFromServing(
     if (!Number.isFinite(numeric) || numeric < 0) throw new Error(`Check ${label}; enter a nonnegative number.`);
     return Math.round(numeric * 100 / servingGrams * 1000) / 1000;
   };
+  // Only submit fields supported by My Foods. A catalog entry may carry
+  // advancedNutrients100g and provenance metadata; those must not enter this
+  // strict, intentionally limited, account-scoped persistence schema.
   return personalBarcodeFoodSchema.parse({
-    ...base,
+    barcode:base.barcode,
+    name:base.name,
+    brand:base.brand??"",
+    servingDescription:base.servingDescription??"",
     packageDescription:base.packageDescription??"",
     calories100g:convert(values.calories,true,"calories"),
     protein100g:convert(values.protein,false,"protein"),

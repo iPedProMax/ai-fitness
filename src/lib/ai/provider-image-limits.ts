@@ -3,6 +3,9 @@
 export const PROVIDER_IMAGE_LIMITS = {
   gemini: 10,
   cloudflare: 1,
+  "cloudflare-vision": 1,
+  "zai-vision": 2,
+  "openrouter-vision": 1,
   groq: 2,
   mistral: 1,
   "ollama-local": 1,

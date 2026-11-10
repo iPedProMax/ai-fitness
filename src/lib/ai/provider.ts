@@ -15,6 +15,16 @@ export function getAiProvider(model: string = "gemini"): AiProvider | null {
   let candidate: AiProvider | null = null;
   if (model === "gemini" && process.env.GEMINI_API_KEY) {
     candidate = createGeminiProvider(process.env.GEMINI_API_KEY, "gemini");
+  } else if (model === "cloudflare-vision" &&
+    process.env.AI_ENABLE_CLOUDFLARE_VISION_PILOT === "true" &&
+    process.env.AI_ENABLE_CLOUDFLARE_FREE === "true" &&
+    process.env.AI_CLOUDFLARE_VISION_MODEL !== "scout" &&
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN) {
+    // Reuse the Cloudflare provider id so its original DB caps and protections apply.
+    candidate = createCloudflareProvider({
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+      apiToken: process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN,
+    }, true);
   } else if (model === "cloudflare" && process.env.AI_ENABLE_CLOUDFLARE_FREE === "true") {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
     const apiToken = process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN ?? "";
@@ -27,6 +37,22 @@ export function getAiProvider(model: string = "gemini"): AiProvider | null {
   }
   else if (model === "ollama-local" && process.env.NODE_ENV !== "production" && process.env.AI_ENABLE_OLLAMA_LOCAL === "true") {
     candidate = createOllamaLocalProvider(true);
+  }
+  else if (model === "openrouter-vision" &&
+    process.env.AI_ENABLE_OPENROUTER_VISION_PILOT === "true" &&
+    process.env.AI_ENABLE_OPENROUTER_FREE === "true" &&
+    process.env.OPENROUTER_FREE_ONLY_CONFIRMED === "true" &&
+    process.env.OPENROUTER_API_KEY) {
+    // Logical scanner entry; underlying provider id remains openrouter for accounting.
+    candidate = createFreeTextProvider("openrouter", process.env.OPENROUTER_API_KEY, true);
+  }
+  else if (model === "zai-vision" &&
+    process.env.AI_ENABLE_ZAI_VISION_PILOT === "true" &&
+    process.env.AI_ENABLE_ZAI_FREE === "true" &&
+    process.env.ZAI_ZERO_SPEND_CONFIRMED === "true" &&
+    process.env.ZAI_API_KEY) {
+    // Reuse the Z.ai provider record and quota, never a duplicate budget.
+    candidate = createFreeTextProvider("zai", process.env.ZAI_API_KEY, true);
   }
   else if (model === "openrouter" && process.env.AI_ENABLE_OPENROUTER_FREE === "true" && process.env.OPENROUTER_FREE_ONLY_CONFIRMED === "true" && process.env.OPENROUTER_API_KEY) {
     candidate = createFreeTextProvider("openrouter", process.env.OPENROUTER_API_KEY, true);

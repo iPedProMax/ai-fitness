@@ -16,6 +16,18 @@ describe("user-reviewed barcode foods",()=>{
     expect(()=>personalFoodFromServing(base,40,{calories:"oops",protein:"1",carbs:"1",fat:"1"},"user_reviewed")).toThrow(/calories/);
     expect(()=>personalFoodFromServing(base,40,{calories:"9999",protein:"1",carbs:"1",fat:"1"},"user_reviewed")).toThrow();
   });
+  it("saves only supported fields when catalog results contain additional nutrient metadata",()=>{
+    const catalogResult = {
+      ...base,
+      advancedNutrients100g: { fiberG: 2, sodiumMg: 400 },
+      nutritionSourceUrl: "https://example.com/nutrition",
+    };
+    const saved = personalFoodFromServing(catalogResult,80,
+      {calories:"350",protein:"5",carbs:"45",fat:"10"},"user_reviewed");
+    expect(saved).toMatchObject({ barcode: base.barcode, calories100g:437.5 });
+    expect(Object.keys(saved)).not.toContain("advancedNutrients100g");
+    expect(Object.keys(saved)).not.toContain("nutritionSourceUrl");
+  });
   it("validates persisted rows rather than trusting database JSON",()=>{
     expect(savedRowToCatalog({barcode:base.barcode,name:base.name,brand:base.brand,serving_description:"40 g",package_description:"40 g",calories_100g:425,protein_100g:null,carbs_100g:60,fat_100g:0,source:"user_reviewed"})).toMatchObject({barcode:base.barcode,calories100g:425,protein100g:null});
     expect(savedRowToCatalog({...base,calories_100g:999999})).toBeNull();

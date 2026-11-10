@@ -6,4 +6,6 @@ import type { AiModelId } from "./model-catalog";
  */
 export const SHARED_TEXT_AI_PROVIDERS: readonly AiModelId[] = [
   "cerebras", "siliconflow", "huggingface", "mistral", "ollama-local",
+  // These adapters have text paths. No scanner permissions are granted.
+  "cloudflare", "openrouter", "zai",
 ];

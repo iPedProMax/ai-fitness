@@ -8,10 +8,23 @@ import {
 
 import { AddMealButton } from "@/components/add-meal-button";
 import { FoodCorrectionPanel } from "@/components/food-correction-panel";
-import { LogFoodPanel } from "@/components/log-food-panel";
+import dynamic from "next/dynamic";
+const LogFoodPanel = dynamic(() => import("@/components/log-food-panel").then(m => m.LogFoodPanel), {
+  loading: () => <div role="status" className="rounded-2xl border border-emerald-100 bg-white p-6 text-sm text-emerald-800">Loading Manual food entry...</div>,
+});
+const ExternalGeminiImportPanel = dynamic(() => import("@/components/external-gemini-import-panel").then(m => m.ExternalGeminiImportPanel), {
+  loading: () => <div role="status" className="rounded-2xl border border-emerald-100 bg-white p-6 text-sm text-emerald-800">Loading AI Web Import...</div>,
+});
 import { AiProviderPicker } from "@/components/ai-provider-picker";
-import { BarcodeLookup } from "@/components/barcode-lookup";
-import { SavedFoodPanel } from "@/components/saved-food-panel";
+import { LogFoodHelpPanel } from "@/components/log-food-help-panel";
+import "./log-food-redesign.css";
+const BarcodeLookup = dynamic(() => import("@/components/barcode-lookup").then(m => m.BarcodeLookup), {
+  loading: () => <div role="status" className="rounded-2xl border border-emerald-100 bg-white p-6 text-sm text-emerald-800">Loading Barcode lookup...</div>,
+});
+import { AiAnalysisBalance } from "@/components/ai-analysis-balance";
+const SavedFoodPanel = dynamic(() => import("@/components/saved-food-panel").then(m => m.SavedFoodPanel), {
+  loading: () => <div role="status" className="rounded-2xl border border-emerald-100 bg-white p-6 text-sm text-emerald-800">Loading Recipes & Favorites...</div>,
+});
 import type { AiProviderChoice } from "@/components/ai-provider-picker";
 import { selectMealImages } from "@/lib/meal-image-selection";
 import { getProviderMaxImages } from "@/lib/ai/provider-image-limits";
@@ -94,6 +107,8 @@ function ImageThumbnail({
 
 export default function Home() {
   const [entryMode, setEntryMode] = useState<"photo" | "manual" | "barcode" | "saved">("photo");
+  const [photoMethod, setPhotoMethod] = useState<"app" | "web">("app");
+  const [webThumbnailFile, setWebThumbnailFile] = useState<File | null>(null);
   useEffect(() => {
     // /?mode=barcode and /?mode=manual are stable, shareable quick-log URLs.
     const syncFromUrl = () => {
@@ -188,8 +203,9 @@ export default function Home() {
     images.length > 0;
   const MAX_IMAGES = getProviderMaxImages(photoProviderId);
   const overProviderLimit = images.length > MAX_IMAGES;
-  const activeCooldownUntil = providerId === "groq" || providerId === "cloudflare"
-    ? cooldownUntil[providerId] : 0;
+  const cooldownProvider = providerId === "cloudflare-vision" ? "cloudflare" : providerId;
+  const activeCooldownUntil = cooldownProvider === "groq" || cooldownProvider === "cloudflare"
+    ? cooldownUntil[cooldownProvider] : 0;
   const cooldownSeconds = Math.max(0, Math.ceil((activeCooldownUntil - cooldownClock) / 1000));
 
   useEffect(() => {
@@ -199,7 +215,7 @@ export default function Home() {
   }, [activeCooldownUntil, cooldownSeconds]);
 
   function captureKnownCooldown(error: unknown) {
-    const provider = providerId;
+    const provider = providerId === "cloudflare-vision" ? "cloudflare" : providerId;
     if (provider !== "groq" && provider !== "cloudflare") return;
     if (!(error instanceof AiHttpError) || error.code !== "AI_PROVIDER_LIMITED") return;
     const seconds = error.retryAfterSeconds;
@@ -499,9 +515,9 @@ export default function Home() {
     );
 
   return (
-    <main className="wellness-logfood min-h-screen bg-slate-50 text-slate-900">
+    <main className="wellness-logfood khalories-log-redesign min-h-screen bg-slate-50 text-slate-900">
 
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="k-lf-container mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <section className="wellness-log-header mx-auto mb-6 max-w-4xl">
           <p className="mb-2 text-sm font-medium text-emerald-600">
             Log Food
@@ -514,6 +530,10 @@ export default function Home() {
           <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
             {entryMode === "barcode"
               ? "Upload a barcode photo, use your camera, or search a packaged food. Standard barcode lookups use no AI credits."
+              : entryMode === "manual"
+              ? "Find food, calculate measured portions, or enter nutrition manually. Text AI is optional."
+              : entryMode === "saved"
+              ? "Browse recipes, adjust servings, and reuse saved foods."
               : <>{providerId === "groq" || providerId === "cloudflare"
                 ? "Scan ONE food or drink at a time. Multiple photos should document the same item. "
                 : "For best results, scan 1-3 foods or drinks at a time. "}{MAX_IMAGES === 0
@@ -522,14 +542,24 @@ export default function Home() {
           </p>
         </section>
 
+        <AiAnalysisBalance />
+
         <div className="wellness-log-modes mx-auto mb-6 flex max-w-4xl flex-wrap gap-2 rounded-2xl bg-slate-100 p-1" role="group" aria-label="How to log food">
-          <button type="button" data-khalories-tour="photo" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
-          <button type="button" aria-pressed={entryMode === "barcode"} onClick={() => { setEntryMode("barcode"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "barcode" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>▥ Barcode</button>
+          <button type="button" data-khalories-tour="photo" aria-pressed={entryMode === "photo"} disabled={MAX_IMAGES === 0} onClick={() => { setEntryMode("photo"); setWebThumbnailFile(null); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "photo" ? "bg-white text-emerald-700 shadow" : "text-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}>📷 Photo Scanner</button>
+          <button type="button" data-khalories-tour="barcode" aria-pressed={entryMode === "barcode"} onClick={() => { setEntryMode("barcode"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "barcode" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>▥ Barcode</button>
           <button type="button" data-khalories-tour="manual" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); resetAnalysis(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "manual" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>✏️ Manual</button>
-          <button type="button" aria-pressed={entryMode === "saved"} onClick={() => { setEntryMode("saved"); resetAnalysis(); }} className={`flex-1 min-w-36 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "saved" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📖 Recipes &amp; Favorites</button>
+          <button type="button" data-khalories-tour="saved" aria-pressed={entryMode === "saved"} onClick={() => { setEntryMode("saved"); resetAnalysis(); }} className={`flex-1 min-w-36 rounded-xl px-4 py-3 text-sm font-semibold ${entryMode === "saved" ? "bg-white text-emerald-700 shadow" : "text-slate-600"}`}>📖 Recipes &amp; Favorites</button>
         </div>
 
-        {(entryMode === "photo" || entryMode === "manual") && <AiProviderPicker mode={entryMode} value={providerId} onChange={next => {
+        <div className="khalories-workflow-grid">
+          <div className="khalories-workflow-primary">
+        {entryMode === "photo" && (
+          <div className="mx-auto mb-3 flex max-w-4xl gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 p-1" role="group" aria-label="Photo Scanner method">
+            <button type="button" aria-pressed={photoMethod === "app"} onClick={() => { setPhotoMethod("app"); setWebThumbnailFile(null); resetAnalysis(); }} className={`flex-1 cursor-pointer rounded-xl px-3 py-3 text-sm font-bold ${photoMethod === "app" ? "bg-emerald-700 text-white shadow" : "text-emerald-900 hover:bg-white"}`}>Khalories AI Scan</button>
+            <button type="button" data-khalories-tour="web-import" aria-pressed={photoMethod === "web"} onClick={() => { setPhotoMethod("web"); setWebThumbnailFile(null); resetAnalysis(); }} className={`flex-1 cursor-pointer rounded-xl px-3 py-3 text-sm font-bold ${photoMethod === "web" ? "bg-emerald-700 text-white shadow" : "text-emerald-900 hover:bg-white"}`}>AI Web Import · No Khalories AI credits</button>
+          </div>
+        )}
+        {entryMode === "photo" && photoMethod === "app" && <AiProviderPicker mode={entryMode} value={providerId} onChange={next => {
           setProviderId(next);
           if (getProviderMaxImages(next) === 0) setEntryMode("manual");
           setImageNotice(null);
@@ -540,14 +570,24 @@ export default function Home() {
           ref={uploaderRef}
           className={
             analysisStarted
-              ? "grid items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
-              : entryMode === "manual" ? "mx-auto w-full max-w-5xl" : "mx-auto max-w-3xl"
+              ? entryMode === "manual"
+                ? "mx-auto w-full max-w-4xl space-y-6"
+                : "grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
+              : entryMode === "manual" ? "mx-auto w-full max-w-4xl" : "mx-auto w-full max-w-4xl"
           }
         >
           {entryMode === "barcode" ? (
-            <section className="mx-auto w-full max-w-3xl"><BarcodeLookup /></section>
+            <section className="mx-auto w-full min-w-0 max-w-4xl"><BarcodeLookup /></section>
           ) : entryMode === "saved" ? (
             <SavedFoodPanel />
+          ) : entryMode === "photo" && photoMethod === "web" ? (
+            <ExternalGeminiImportPanel thumbnailFile={webThumbnailFile} onThumbnailChange={setWebThumbnailFile} onReset={resetAnalysis} onResult={(result) => {
+              setAnalysis(result);
+              setAnalysisStarted(true);
+              setError(null);
+              setRefineError(null);
+              setSelectedAnswers({});
+            }} />
           ) : entryMode === "photo" ? (
           <section
             className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-500 sm:p-6"
@@ -768,10 +808,18 @@ export default function Home() {
                 {providerId === "groq" ? "Groq" : "Cloudflare"} is cooling down. Try again in {cooldownSeconds} seconds.
               </p>
             )}
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              One analysis may use a daily credit after an AI provider is contacted, even if that provider fails. For logging without Khalories AI credits, choose AI Web Import.
+            </p>
           </section>
 
           ) : (
             <LogFoodPanel
+              aiProviderPicker={<AiProviderPicker mode="manual" value={textProviderId} onChange={next => {
+                setProviderId(next);
+                setImageNotice(null);
+                resetAnalysis();
+              }} photoCount={0} />}
               providerId={providerId}
               onReset={resetAnalysis} onResult={(result) => {
               setAnalysis(result);
@@ -809,7 +857,21 @@ export default function Home() {
 
               {error && (
                 <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                  {error}
+                  <p role="alert">{error}</p>
+                  {entryMode === "photo" && photoMethod === "app" && (
+                    <div className="mt-3 border-t border-red-200 pt-3">
+                      <p className="text-xs leading-5 text-red-800">
+                        If the provider was never contacted, Khalories refunds the failed request automatically. If it was contacted, the attempt may count toward your daily allowance. Check the balance above; it refreshes from the server after each submission.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setPhotoMethod("web"); resetAnalysis(); }}
+                        className="mt-3 min-h-11 cursor-pointer rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 shadow-sm transition hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                      >
+                        Switch to free AI Web Import
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1141,12 +1203,15 @@ export default function Home() {
                       {entryMode === "photo" ? "Edit photos" : "Edit entry"}
                     </button>
 
-                    {analysis && <AddMealButton analysis={analysis} photoFiles={entryMode === "photo" ? images : []} />}
+                    {analysis && <AddMealButton analysis={analysis} photoFiles={entryMode === "photo" && photoMethod === "app" ? images : entryMode === "photo" && photoMethod === "web" && webThumbnailFile ? [webThumbnailFile] : []} />}
                   </div>
                 </>
               )}
             </section>
           )}
+        </div>
+          </div>
+          <aside className="khalories-workflow-aside" aria-label="Log Food guidance"><LogFoodHelpPanel mode={entryMode} /></aside>
         </div>
       </div>
 

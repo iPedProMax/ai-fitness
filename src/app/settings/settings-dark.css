@@ -1,0 +1,71 @@
+/* Khalories Settings: high-contrast dark-mode surfaces only.
+ * Light mode remains unchanged. Scoped to /settings to avoid affecting other pages.
+ */
+html[data-aura-theme="dark"] .khalories-settings-root .khalories-settings-hero {
+  background: linear-gradient(125deg, #254639 0%, #1a352b 62%, #172d26 100%) !important;
+  color: #f1fbf2 !important;
+  border-color: #476e56 !important;
+  box-shadow: 0 12px 36px #071d1580 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-hero h1 {
+  color: #f1fbf2 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-hero p.text-slate-600 {
+  color: #cee0d0 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-hero p.text-emerald-700 {
+  color: #aef0ad !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-hero > [aria-hidden="true"] {
+  border-color: #42674e !important;
+  opacity: .65;
+}
+html[data-aura-theme="dark"] .khalories-settings-hero span.rounded-full {
+  color: #e0f2df !important;
+  background: #304b3c !important;
+  border: 1px solid #4c7759;
+  box-shadow: none !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root .khalories-settings-avatar-panel {
+  background: #284438 !important;
+  color: #f3fbf4 !important;
+  border: 1px solid #4b7257 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-avatar-panel p.truncate {
+  color: #f3fbf4 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-avatar-panel p.text-slate-600 {
+  color: #c3ddce !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root button[aria-pressed="true"] {
+  color: #ecfff0 !important;
+  background: #345841 !important;
+  border-color: #9befb3 !important;
+  box-shadow: inset 0 0 0 1px #9befb377 !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root button[aria-pressed="false"] {
+  color: #d0e2d5 !important;
+  background: #263b31 !important;
+  border-color: #3b604e !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root button[aria-pressed="false"]:hover {
+  border-color: #93d5a4 !important;
+  background: #314e3e !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root input:not([type="file"]),
+html[data-aura-theme="dark"] .khalories-settings-root textarea {
+  background-color: #182f25 !important;
+  color: #f0fcf2 !important;
+  border-color: #50705b !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root input::placeholder,
+html[data-aura-theme="dark"] .khalories-settings-root textarea::placeholder {
+  color: #91ad9a !important;
+}
+html[data-aura-theme="dark"] .khalories-settings-root :is(input:not([type="file"]), textarea, button):focus-visible {
+  outline: 3px solid #a5eab7 !important;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .khalories-settings-root * { scroll-behavior: auto !important; }
+}

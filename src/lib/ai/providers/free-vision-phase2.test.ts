@@ -14,7 +14,7 @@ describe("Phase 2 free vision - offline only", () => {
   it.each(["zai", "openrouter"] as const)("%s generates multimodal user content", id => {
     const body = JSON.parse(freeTextBody(id, req));
     expect(body.messages[1].content[1].image_url.url).toBe("data:image/jpeg;base64,aGVsbG8=");
-    expect(body.model).toBe(id === "zai" ? "glm-4.6v-flash" : "openrouter/free");
+    expect(body.model).toBe(id === "zai" ? "glm-4.6v-flash" : "google/gemma-4-26b-a4b-it:free");
     expect(createFreeTextProvider(id, "dummy", true).capabilities.vision).toBe(true);
   });
   it("rejects third Z.ai photo or second OpenRouter photo", () => {

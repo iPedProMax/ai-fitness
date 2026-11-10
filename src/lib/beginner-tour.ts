@@ -16,17 +16,49 @@ export const beginnerTourSteps: readonly TourStep[] = [
     id: "photo",
     path: "/",
     selector: '[data-khalories-tour="photo"]',
-    title: "Scan a meal from photos",
-    description: "Choose Photo Scanner to add a meal picture. You can include packaging, a nutrition label, or a scale photo when your selected AI supports it.",
-    hint: "Nothing is analyzed until you choose to run the scan.",
+    title: "Photo Scanner: two ways to log",
+    description: "Photo Scanner now has Khalories AI Scan and AI Web Import. The built-in scan analyzes photos using an available Vision model; Web Import uses another AI website and a manual paste.",
+    hint: "Built-in AI scans use your Khalories allowance. Simply opening a tab uses no analysis credits.",
+  },
+  {
+    id: "web-import",
+    path: "/",
+    selector: '[data-khalories-tour="web-import"]',
+    title: "Import nutrition from an AI website",
+    description: "Choose AI Web Import to open Gemini, ChatGPT, Grok or another supported website yourself. Paste a normal answer or JSON, review the extracted values, and optionally add a private meal thumbnail.",
+    hint: "The import uses no Khalories AI credits. External services have their own accounts, limits and privacy rules.",
+  },
+  {
+    id: "barcode",
+    path: "/",
+    selector: '[data-khalories-tour="barcode"]',
+    title: "Scan a barcode or search its product",
+    description: "Use a barcode photo, camera, or packaged-food search. Check the exact variety, serving size, and nutrition label before adding your meal.",
+    hint: "Ordinary barcode lookups are free. Optional AI label assistance is a separate action.",
   },
   {
     id: "manual",
     path: "/",
     selector: '[data-khalories-tour="manual"]',
-    title: "Or log your food manually",
-    description: "Use Manual / Text to enter foods yourself or ask an available text AI for an estimate. You can edit the numbers before saving.",
+    title: "Manual: four quick tools",
+    description: "Choose Find Food, Calculator, Enter Details, or AI Estimate. In Calculator, enter how much food you actually ate and the measurement unit—without the bowl, plate or wrapper.",
     hint: "Manual entry does not require AI credits.",
+  },
+  {
+    id: "recipes",
+    path: "/",
+    selector: '[data-khalories-tour="saved"]',
+    title: "Reuse your recipes and favorites",
+    description: "The Recipes & Favorites tab includes your saved foods, editable recipes, and Filipino recipe presets. Adjust servings and ingredients before logging.",
+    hint: "Saved foods and manual recipes do not require an AI scan.",
+  },
+  {
+    id: "meal-history",
+    path: "/meals",
+    selector: '[data-khalories-tour="meal-history"], main h1, main h2',
+    title: "Find, edit and review saved meals",
+    description: "Meal History groups meals by day, supports date and food searches, and keeps advanced nutrients. You can opt in to saving a private compressed thumbnail with a meal.",
+    hint: "Food photos are optional. A thumbnail is saved only when you choose Save photo at confirmation.",
   },
   {
     id: "coach-nav",
@@ -81,7 +113,7 @@ export const beginnerTourSteps: readonly TourStep[] = [
 /** Use the authenticated Supabase user id only; never use profile names/emails. */
 export function beginnerTourStorageKey(userId: string): string {
   if (!/^[a-f0-9-]{36}$/i.test(userId)) throw new Error("Invalid account id for the local tour state.");
-  return `khalories:beginner-tour:v1:${userId}`;
+  return `khalories:beginner-tour:v2:${userId}`;
 }
 
 export type SpotlightRect = { top: number; right: number; bottom: number; left: number };

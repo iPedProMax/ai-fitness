@@ -10,6 +10,7 @@ import { foodEmoji } from "@/lib/food-emoji";
 import { EditMealTime } from "@/components/edit-meal-time";
 import { MealQuickActions } from "@/components/meal-quick-actions";
 import { MealEditor } from "@/components/meal-editor";
+import { MealHistoryThumbnail } from "@/components/meal-history-thumbnail";
 
 
 type MealItem = {
@@ -158,7 +159,11 @@ export default async function MealsPage({ searchParams }: { searchParams: Promis
                   {group.meals.map((meal) => (
                     <details key={meal.id} className="group overflow-hidden rounded-2xl border border-[#dce7d8] bg-white shadow-sm">
                       <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 p-4 transition hover:bg-[#f5faf2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 [&::-webkit-details-marker]:hidden">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf6e7] text-xl" aria-hidden="true">{foodEmoji(meal.meal_items?.[0]?.name ?? "Meal")}</span>
+                        <MealHistoryThumbnail
+                          src={meal.thumbnail_path ? photoUrls.get(meal.thumbnail_path) : undefined}
+                          foodName={meal.meal_items?.[0]?.name ?? "Saved meal"}
+                          emoji={foodEmoji(meal.meal_items?.[0]?.name ?? "Meal")}
+                        />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold text-[#153c2c]">{meal.meal_items?.map(item => item.name).join(", ") || "Saved meal"}</span>
                           <span className="mt-1 block text-xs text-slate-500">{philippinesMealClock(meal.consumed_at ?? meal.created_at)} · Tap to view nutrition</span>
@@ -172,14 +177,6 @@ export default async function MealsPage({ searchParams }: { searchParams: Promis
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    {meal.thumbnail_path && photoUrls.get(meal.thumbnail_path) ? (
-                      <img src={photoUrls.get(meal.thumbnail_path)} alt="Saved food photo" loading="lazy"
-                        className="h-16 w-16 shrink-0 rounded-2xl border border-slate-200 object-cover sm:h-20 sm:w-20" />
-                    ) : (
-                      <span aria-label="Food photo not available" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-3xl" role="img">
-                        {foodEmoji(meal.meal_items?.[0]?.name ?? "food")}
-                      </span>
-                    )}
                     <div>
                     <EditMealTime
                       mealId={meal.id}

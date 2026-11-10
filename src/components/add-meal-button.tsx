@@ -19,7 +19,7 @@ export function AddMealButton({ analysis, photoFiles = [] }: Props) {
   const [mealDate, setMealDate] = useState("");
   const [mealClock, setMealClock] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [savePhoto, setSavePhoto] = useState(false);
+  const [savePhoto, setSavePhoto] = useState(photoFiles.length > 0);
   const [photoNotice, setPhotoNotice] = useState("");
   const isSaved = savedAnalysis === analysis;
 
@@ -30,13 +30,13 @@ export function AddMealButton({ analysis, photoFiles = [] }: Props) {
     setMealClock("");
     setError(null);
     setPhotoNotice("");
-    setSavePhoto(false);
+    setSavePhoto(photoFiles.length > 0);
     if (dialogRef.current?.open) dialogRef.current.close();
   }, [analysis]);
 
   function openConfirmation() {
     if (isSaving || isSaved) return;
-    setSavePhoto(false);
+    setSavePhoto(photoFiles.length > 0);
     setError(null);
     setMode("now");
     setMealDate("");
@@ -141,7 +141,7 @@ export function AddMealButton({ analysis, photoFiles = [] }: Props) {
                 disabled={isSaving}
                 className="h-4 w-4 shrink-0 cursor-pointer accent-emerald-700"
               />
-              <span><strong>Save photo</strong> <span className="font-normal">(optional)</span></span>
+              <span><strong>Save photo</strong> <span className="font-normal">(checked by default; uncheck to skip)</span></span>
             </label>
           )}
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}

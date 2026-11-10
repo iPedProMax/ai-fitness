@@ -11,13 +11,13 @@ export async function selectRequestedAiModel(rawModel: unknown, imageCount: numb
     error: NextResponse.json({ error, code }, { status, headers: { "Cache-Control": "private, no-store" } }),
   });
   const model = rawModel == null ? "gemini" : rawModel;
-  if (typeof model !== "string" || !["gemini", "cloudflare", "groq", "mistral", "ollama-local", "openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(model)) {
+  if (typeof model !== "string" || !["gemini", "cloudflare", "cloudflare-vision", "zai-vision", "openrouter-vision", "groq", "mistral", "ollama-local", "openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(model)) {
     return fail("Invalid or unsupported AI provider.", "AI_INVALID_MODEL", 400);
   }
   if (!Number.isInteger(imageCount) || imageCount < 0 || imageCount > 10) {
     return fail("Too many photos for this AI analysis.", "AI_MODEL_UNSUPPORTED", 422);
   }
-  if ((model === "groq" && imageCount > 2) || (model === "zai" && imageCount > 2) || (model === "openrouter" && imageCount > 1) || (model === "cloudflare" && imageCount > 1) || (model === "mistral" && imageCount > 0) || (model === "ollama-local" && imageCount > 1)) {
+  if ((model === "groq" && imageCount > 2) || ((model === "zai" || model === "zai-vision") && imageCount > 2) || ((model === "openrouter" || model === "openrouter-vision") && imageCount > 1) || ( (model === "cloudflare" || model === "cloudflare-vision") && imageCount > 1) || (model === "mistral" && imageCount > 0) || (model === "ollama-local" && imageCount > 1)) {
     return fail("This AI provider cannot process that number of photos.", "AI_MODEL_UNSUPPORTED", 422);
   }
   if (imageCount > 0 && ["siliconflow", "huggingface", "cerebras"].includes(model)) {

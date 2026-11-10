@@ -1,4 +1,5 @@
 import { withAiRequest } from "@/lib/ai/request-control";
+import { classifyTextAiFailure } from "@/lib/ai/text-failure";
 import { requireFoodApiAuth } from "@/lib/food-api-auth";
 import { reserveAiUsage } from "@/lib/ai-usage";
 import { selectRequestedAiModel } from "@/lib/ai/selected-model";
@@ -119,8 +120,19 @@ async function handlePost(request: Request) {
   } catch (error) {
     const routingError = aiRoutingErrorResponse(error);
     if (routingError) return routingError;
-    console.error("AI text nutrition estimation failed.");
-    return NextResponse.json({ error: "Could not estimate food from text. Try a clearer description." }, { status: 502 });
+    const failure = classifyTextAiFailure(error);
+    // Safe, allowlisted diagnostics only. No prompts, provider bodies, auth keys or user identifiers.
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[AI_TEXT_FAILURE_DIAGNOSTIC] " + JSON.stringify({
+        model: provider.id,
+        category: failure.category,
+        upstreamStatus: failure.upstreamStatus,
+      }));
+    }
+    return NextResponse.json(
+      { error: failure.message, code: failure.code },
+      { status: 502, headers: { "Cache-Control": "private, no-store" } },
+    );
   }
 }
 

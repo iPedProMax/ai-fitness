@@ -30,8 +30,23 @@ export function ThemeToggle() {
         document.documentElement.setAttribute("data-aura-theme", media.matches ? "dark" : "light");
       }
     };
+    const onAppearanceChanged = () => {
+      let saved: Appearance = "system";
+      try {
+        const value = window.localStorage.getItem(STORAGE_KEY);
+        if (value === "light" || value === "dark" || value === "system") saved = value;
+      } catch { /* Storage may be unavailable. */ }
+      preferenceRef.current = saved;
+      setAppearance(saved);
+      setSystemDark(media.matches);
+      document.documentElement.setAttribute("data-aura-theme", saved === "dark" || (saved === "system" && media.matches) ? "dark" : "light");
+    };
     media.addEventListener("change", onSystemChange);
-    return () => media.removeEventListener("change", onSystemChange);
+    window.addEventListener("khalories-appearance-updated", onAppearanceChanged);
+    return () => {
+      media.removeEventListener("change", onSystemChange);
+      window.removeEventListener("khalories-appearance-updated", onAppearanceChanged);
+    };
   }, []);
 
 

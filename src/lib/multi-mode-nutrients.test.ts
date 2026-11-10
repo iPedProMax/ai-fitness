@@ -35,8 +35,10 @@ describe("X6 optional nutrients across all food modes",()=>{
   const bar=readFileSync(join(root,"src/components/barcode-lookup.tsx"),"utf8");
   expect(photo).toContain("geminiLabelFoodAnalysisJsonSchema");
   expect(text).toContain("keepGeminiLabelNutrients");
-  expect(bar).toContain("advancedFromLabel");
-  expect(bar).toContain("as Partial<Record<NutritionKey,string>>");
+  expect(bar).toContain("BarcodeAiTextAssist");
+  expect(bar).toContain("missingBarcodeTextAiDraft");
+  expect(bar).not.toContain("analyzeLabelPhotos");
+  expect(bar).not.toContain('import {analyzeFood} from "@/lib/analyze-food"');
   expect(text).toContain('reserveAiUsage("analysis")');
  });
 });

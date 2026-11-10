@@ -45,7 +45,7 @@ function Navigation({ pathname, onNavigate }: { pathname: string; onNavigate?: (
   return <nav aria-label="Main navigation" className="wellness-nav space-y-1">
     {navItems.map(item => {
       const active = item.href === pathname || (item.href === "/meals" && pathname === "/recipes");
-      return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}
+      return <Link key={item.href} href={item.href} data-khalories-tour={item.href === "/meals" ? "meal-history" : undefined} onClick={onNavigate} aria-current={active ? "page" : undefined}
         className={`wellness-nav-link flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${active ? "aura-nav-active" : ""}`}>
         {item.href === "/coach" ? <CoachNavIcon /> : <NavIcon icon={item.icon} />}<span>{item.label}</span>
       </Link>;
@@ -55,7 +55,7 @@ function Navigation({ pathname, onNavigate }: { pathname: string; onNavigate?: (
 function Brand() {
   return <Link href="/dashboard" className="wellness-brand flex items-center gap-3">
     <Image src="/khalories-brand-original-leaf.png" alt="Khalories AI logo" width={44} height={44} className="h-11 w-11 shrink-0 object-contain" />
-    <span><strong className="block text-lg font-extrabold leading-none tracking-tight">Khalories AI</strong><span className="mt-1 block text-[10px] font-bold uppercase tracking-[.18em] opacity-65">Better every day</span></span>
+    <span><strong className="block text-lg font-extrabold leading-none tracking-tight">Khalories AI</strong><span className="k-lf-brand-line mt-1 block text-[10px]">Big cravings. <b>Smart tracking.</b></span></span>
   </Link>;
 }
 function CoachNavIcon() {
@@ -71,11 +71,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (pathname?.startsWith("/auth")) clearAuraConversation();
   }, [pathname]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isAppRoute = ["/", "/dashboard", "/meals", "/barcode", "/recipes", "/activities", "/reports", "/goals", "/settings", "/coach"].includes(pathname);
+  const isAppRoute = ["/", "/dashboard", "/meals", "/barcode", "/recipes", "/activities", "/reports", "/goals", "/settings", "/coach", "/foods"].includes(pathname);
   if (!isAppRoute) {
     return <>{children}</>;
   }
-  const pageTitle = pathname === "/dashboard" ? "Overview" : pathname === "/" || pathname === "/barcode" ? "Log Food" : pathname === "/meals" ? "Meal History" : pathname === "/recipes" ? "Recipes & Favorites" : pathname === "/reports" ? "Reports" : pathname === "/goals" ? "Goals" : pathname === "/activities" ? "Activities" : pathname === "/settings" ? "Settings" : "AI Coach";
+  const pageTitle = pathname === "/dashboard" ? "Overview" : pathname === "/" || pathname === "/barcode" ? "Log Food" : pathname === "/meals" ? "Meal History" : pathname === "/recipes" ? "Recipes & Favorites" : pathname === "/reports" ? "Reports" : pathname === "/goals" ? "Goals" : pathname === "/activities" ? "Activities" : pathname === "/settings" ? "Settings" : pathname === "/foods" ? "Food Library" : "AI Coach";
   return <div className="aura-app wellness-app min-h-screen w-full">
     <aside className="aura-sidebar wellness-sidebar fixed inset-y-0 left-0 z-30 hidden w-[252px] flex-col p-5 lg:flex">
       <Brand />

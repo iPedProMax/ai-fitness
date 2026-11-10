@@ -25,6 +25,19 @@ export async function getAiModelStatuses(): Promise<AiModelStatus[]> {
         ? "Local Ollama is disabled (development only, no cloud billing)"
         : policy?.reason ?? "Local Ollama staging policy not activated" };
     }
+    if (model.id === "cloudflare-vision") {
+      // Logical Photo Scanner slot backed by the existing Cloudflare provider policy.
+      // The pilot is OFF by default. Never route the Scout text experiment as Vision.
+      const policy = policies.get("cloudflare");
+      const configured = process.env.AI_ENABLE_CLOUDFLARE_VISION_PILOT === "true" &&
+        process.env.AI_ENABLE_CLOUDFLARE_FREE === "true" &&
+        process.env.AI_CLOUDFLARE_VISION_MODEL !== "scout" &&
+        Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_WORKERS_AI_API_TOKEN);
+      const enabled = process.env.AI_ENABLED === "true" && configured && policy?.enabled === true;
+      return { ...model, enabled, reason: enabled ? null : !configured
+        ? "Cloudflare Vision pilot is disabled or not configured"
+        : policy?.reason ?? "Cloudflare provider policy not approved" };
+    }
     if (model.id === "cloudflare" || model.id === "groq" || model.id === "mistral") {
       const policy = policies.get(model.id);
       const credentialsConfigured = model.id === "cloudflare"
@@ -35,6 +48,24 @@ export async function getAiModelStatuses(): Promise<AiModelStatus[]> {
       const enabled = process.env.AI_ENABLED === "true" && credentialsConfigured && policy?.enabled === true;
       return { ...model, enabled, reason: enabled ? null : !credentialsConfigured
         ? "Provider not configured for verified free use" : policy?.reason ?? "Provider policy not activated" };
+    }
+    if (model.id === "openrouter-vision" || model.id === "zai-vision") {
+      const openrouter = model.id === "openrouter-vision";
+      // Existing provider rows govern both text and photo slots; no new quotas.
+      const policy = policies.get(openrouter ? "openrouter" : "zai");
+      const configured = openrouter
+        ? process.env.AI_ENABLE_OPENROUTER_VISION_PILOT === "true" &&
+          process.env.AI_ENABLE_OPENROUTER_FREE === "true" &&
+          process.env.OPENROUTER_FREE_ONLY_CONFIRMED === "true" &&
+          Boolean(process.env.OPENROUTER_API_KEY)
+        : process.env.AI_ENABLE_ZAI_VISION_PILOT === "true" &&
+          process.env.AI_ENABLE_ZAI_FREE === "true" &&
+          process.env.ZAI_ZERO_SPEND_CONFIRMED === "true" &&
+          Boolean(process.env.ZAI_API_KEY);
+      const enabled = process.env.AI_ENABLED === "true" && configured && policy?.enabled === true;
+      return { ...model, enabled, reason: enabled ? null : !configured
+        ? "Vision pilot disabled until free-tier credentials and opt-in are confirmed"
+        : policy?.reason ?? "Provider not approved in the shared staging policy" };
     }
     if (["openrouter", "zai", "siliconflow", "huggingface", "cerebras"].includes(model.id)) {
       const localConfig: Record<string, boolean> = {

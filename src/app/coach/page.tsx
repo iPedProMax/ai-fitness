@@ -39,7 +39,7 @@ export default function CoachPage() {
       { id: previous.length + 1, author: "coach", text: coachReply(topic) },
     ]);
   }
-  const available = new Set(statuses.filter(item => item.enabled && item.text).map(item => item.id));
+  const available = new Set(statuses.filter(item => item.enabled && item.text && (item.id !== "ollama-local" || localAvailable)).map(item => item.id));
   // Same behavior as the scanner: the original Gemini choice stays visible when status lookup fails;
   // authenticated backend admission remains authoritative and will reject unavailable providers.
   // No scanner-model fallback when text provider status is unavailable.
@@ -98,6 +98,7 @@ export default function CoachPage() {
                 return <option key={id} value={id} disabled={!enabled}>{item.name}{!enabled ? " (unavailable)" : ""}</option>;
               })}
             </select>
+            <details className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-slate-700"><summary className="cursor-pointer font-semibold text-emerald-900">Text AI availability · {SHARED_TEXT_AI_PROVIDERS.filter(id => available.has(id)).length}/{SHARED_TEXT_AI_PROVIDERS.length} available</summary><div className="mt-2 space-y-2">{SHARED_TEXT_AI_PROVIDERS.map(id => { const entry = statuses.find(item => item.id === id); const ready = available.has(id); const tryLocal = id === "ollama-local" && process.env.NODE_ENV === "development" && !ready; const name = aiModelCatalog.find(item => item.id === id)?.name ?? id; return <p key={id} className="rounded-lg bg-white p-2"><strong>{name} · {ready ? "Available" : tryLocal ? "Try local (dev)" : "Unavailable"}</strong>{!ready && <span className="block text-slate-500">{tryLocal ? "Local Ollama can be attempted in development; the local server checks readiness before generating." : entry?.reason ?? "Provider approval required"}</span>}</p>; })}</div><p className="mt-2">New cloud AIs require independently verified free conditions, API credentials and server database approval.</p></details>
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-emerald-50/40 p-3 text-sm text-slate-800">
               <input type="checkbox" checked={useSavedData} onChange={event => setUseSavedData(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-emerald-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" />
               <span><strong>Personalize using my saved data</strong><span className="mt-1 block text-xs leading-5 text-slate-600">Share a brief summary of my saved meals, goals, activities, and latest weight with this selected AI for my answer. Off by default. No medical records.</span></span>

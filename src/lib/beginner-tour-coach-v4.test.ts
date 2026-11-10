@@ -6,7 +6,7 @@ const shell = readFileSync(join(process.cwd(), "src/components/app-shell.tsx"), 
 const component = readFileSync(join(process.cwd(), "src/components/beginner-tour.tsx"), "utf8");
 describe("Phase U11 V4 AI Coach onboarding", () => {
   it("contains separate navigation, floating coach and full coach steps", () => {
-    expect(beginnerTourSteps.map(s => s.id)).toEqual(["photo", "manual", "coach-nav", "coach-floating", "coach", "reports", "activities", "settings"]);
+    expect(beginnerTourSteps.map(s => s.id)).toEqual(["photo", "web-import", "barcode", "manual", "recipes", "meal-history", "coach-nav", "coach-floating", "coach", "reports", "activities", "settings"]);
     expect(beginnerTourSteps.find(s => s.id === "coach-nav")?.selector).toContain('/coach');
     expect(beginnerTourSteps.find(s => s.id === "coach-floating")?.selector).toContain('data-fonz-fab');
     expect(beginnerTourSteps.find(s => s.id === "coach")?.selector).toContain('coach-ai-provider');

@@ -23,6 +23,19 @@ export function hasUnusablePhotoNutrition(food: FoodItem): boolean {
     !Number.isFinite(food.confidence) || food.confidence <= 0;
 }
 
+/** A carb-rich food with positive calories and all macronutrients reported
+ * as zero cannot be presented as a complete nutrition estimate. Target this
+ * narrowly; water/coffee, alcohol, and genuinely tiny portions remain valid.
+ * Do not invent macro values or "correct" a model's numbers automatically. */
+export function hasImplausibleStarchyPhotoNutrition(food: FoodItem): boolean {
+  if (food.unknownMacros?.length) return false;
+  if (![food.estimatedGrams, food.calories, food.protein, food.carbs, food.fat]
+    .every(value => Number.isFinite(value) && value >= 0)) return false;
+  const commonStarch = /\b(rice|oats?|oatmeal|cereal|pasta|noodles?|bread|potatoes?|pancit|lugaw)\b/i;
+  return commonStarch.test(food.name) && food.estimatedGrams >= 1 && food.calories >= 3 &&
+    food.protein <= 0.05 && food.carbs <= 0.05 && food.fat <= 0.05;
+}
+
 /** Block only EXTREME contradictions from lightweight photo providers.
  * 4/4/9 is an approximation, not a universal calorie formula: alcohol, fibre,
  * rounding and label differences can legitimately shift the total.
