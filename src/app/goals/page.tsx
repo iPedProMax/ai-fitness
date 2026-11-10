@@ -27,7 +27,7 @@ export default async function GoalsPage() {
     target_weight_kg: goal.target_weight_kg === null ? null : Number(goal.target_weight_kg),
   } : null;
   const weights = (weightsResult.data ?? []).map(e=>({ ...e, weight_kg: Number(e.weight_kg) })) as WeightRecord[];
-  return <main className="bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 sm:py-10"><div className="mx-auto max-w-4xl">
+  return <main className="khalories-dark-goals bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 sm:py-10"><div className="mx-auto max-w-4xl">
     <Link href="/dashboard" className="text-sm font-semibold text-emerald-700 hover:underline">← Back to dashboard</Link>
     <header className="my-7"><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Your pace, your choice</p><h1 className="mt-2 text-3xl font-extrabold">Personal Goals</h1><p className="mt-2 text-sm text-slate-600">Use our free TDEE Calculator to estimate a daily calorie target, customise your goals, and optionally track your weight. No AI credits needed.</p></header>
     {(goalResult.error || weightsResult.error) && <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-white p-4 text-sm text-red-700">Could not load {goalResult.error ? "fitness goals" : "weight entries"}. Check that the Phase 5 SQL migration has been applied.</p>}

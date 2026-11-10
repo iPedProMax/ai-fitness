@@ -104,7 +104,7 @@ export default async function MealsPage({ searchParams }: { searchParams: Promis
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="khalories-dark-meals min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <nav aria-label="Meal History navigation" className="flex w-full flex-wrap items-center justify-between gap-3">
           <Link
