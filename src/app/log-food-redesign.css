@@ -75,3 +75,104 @@
 @media(max-width:1000px){ .khalories-workflow-grid { grid-template-columns:minmax(0,1fr); } .khalories-workflow-aside { position:static; } .k-lf-help-stack { grid-template-columns:repeat(2,minmax(0,1fr)); } .k-lf-help-footer { display:none; } .khalories-log-redesign .k-lf-container{padding-top:25px;} }
 @media(max-width:670px){ .khalories-log-redesign .k-lf-container{padding:19px 13px 94px;} .khalories-log-redesign .wellness-log-header{margin-bottom:18px!important;} .khalories-log-redesign .wellness-log-header h2{font-size:27px!important;} .khalories-log-redesign .wellness-log-modes{padding:4px!important;gap:3px!important;margin-bottom:16px!important;} .khalories-log-redesign .wellness-log-modes button{padding:8px 4px;min-height:52px; font-size:10px!important;} .khalories-workflow-primary > div:has(#ai-provider-choice){padding:12px;} .k-lf-help-stack{grid-template-columns:1fr;} .khalories-workflow-aside{display:none;} .khalories-barcode-flow > section:first-child{padding:16px!important;} .k-lf-verify-action{flex-direction:column;align-items:stretch;} .k-lf-verify-action button{width:100%;} .khalories-manual-flow{padding:16px!important;} .khalories-workflow-primary :is(input,select,textarea){font-size:16px;} .khalories-workflow-primary #ai-provider-choice {display:block;width:100%;min-height:46px;} }
 @media(prefers-reduced-motion:reduce){.khalories-log-redesign *{scroll-behavior:auto!important;transition-duration:0s!important;animation-duration:0s!important;}}
+
+/* Khalories M1: match Log Food and its tools to the evergreen dark palette. */
+html[data-aura-theme="dark"] .khalories-log-redesign {
+  --k-lf-cream: #13251e;
+  --k-lf-pine: #eff9ef;
+  --k-lf-leaf: #a8e4af;
+  --k-lf-muted: #bacfc0;
+  --k-lf-line: #43634d;
+  background: radial-gradient(ellipse at 80% 0%, #204433 0%, transparent 46%), #13251e !important;
+  color: #eff9ef !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-header :is(h2, p) { color: #edf7ed !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-header > p:last-child { color: #b9cfbf !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-modes,
+html[data-aura-theme="dark"] .khalories-log-redesign [aria-label="Photo Scanner method"] {
+  background: #284436 !important; border-color: #43644d !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-modes button[aria-pressed="false"],
+html[data-aura-theme="dark"] .khalories-log-redesign [aria-label="Photo Scanner method"] button[aria-pressed="false"] {
+  color: #d1e5d4 !important; background: transparent !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-modes button[aria-pressed="false"]:hover,
+html[data-aura-theme="dark"] .khalories-log-redesign [aria-label="Photo Scanner method"] button[aria-pressed="false"]:hover { background: #345743 !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .wellness-log-modes button[aria-pressed="true"],
+html[data-aura-theme="dark"] .khalories-log-redesign [aria-label="Photo Scanner method"] button[aria-pressed="true"] {
+  color: #fff !important; background: linear-gradient(115deg, #16875d, #07533d) !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary > div:has(#ai-provider-choice),
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary :is(section.rounded-3xl, section.rounded-2xl, fieldset.rounded-xl),
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-manual-flow {
+  background: #203a2d !important; color: #eff9ef !important;
+  border-color: #44644f !important; box-shadow: 0 8px 26px #091c1638 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary #ai-provider-choice,
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary :is(input, textarea, select):not([type="file"]):not([type="checkbox"]):not([type="radio"]) {
+  color: #f1faf0 !important; background: #162c22 !important; border-color: #56745d !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary :is(input, textarea)::placeholder { color: #a1baa7 !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary :is(input, textarea, select):focus-visible,
+html[data-aura-theme="dark"] .khalories-log-redesign button:focus-visible,
+html[data-aura-theme="dark"] .khalories-log-redesign a:focus-visible {
+  outline: 2px solid #a3e7b2 !important; outline-offset: 2px;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-workflow-primary :is(.text-emerald-700, .text-emerald-600, .text-emerald-900),
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-manual-flow legend {
+  color: #b4eac0 !important;
+}
+/* Side guidance cards otherwise keep their light-only gradient in dark mode. */
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-card {
+  background: linear-gradient(135deg, #294736, #203b2e) !important;
+  border-color: #466650 !important;
+  color: #f0f9ef !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-card :is(h2, strong, .k-lf-help-step strong) { color: #edf9ed !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-card :is(p, .k-lf-help-description, .k-lf-help-step p) { color: #bfd4c2 !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-eyebrow,
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-footer strong { color: #aef0b6 !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-number { color: #e8f9eb !important; background: #376346 !important; }
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-tip {
+  background: linear-gradient(145deg, #393c2b, #2b3528) !important; border-color: #666748 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .k-lf-help-tip-title { color: #f0e6b2 !important; }
+/* The portion calculator uses fixed light gradients and hex text classes. */
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] {
+  background: linear-gradient(130deg, #2b4938, #1b362a) !important;
+  border-color: #53735c !important; color: #f2faf0 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] :is(h3, label, p, small, span) {
+  color: #d6e7d8 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] h3,
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] .text-white {
+  color: #f5fcf3 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] [class*="bg-[#"],
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] [class*="bg-white/"] {
+  background: #2c4837 !important; border-color: #53745c !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] button[class*="bg-[#1c6543]"],
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] button[aria-pressed="true"] {
+  background: #197954 !important; color: #fff !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign section[aria-labelledby="quick-nutrition-title"] button[class*="bg-[#1c6543]"]:hover { background: #208c63 !important; }
+/* Do not turn colored summary/action panels into unreadable flat grey boxes. */
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-manual-flow [aria-label="Live nutrition summary"] {
+  background: linear-gradient(145deg, #294e3a, #203d2e) !important;
+  color: #ecf8ed !important; border-color: #4e7658 !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-manual-flow [aria-label="Live nutrition summary"] .bg-white {
+  background: #2d5140 !important; color: #eff9ed !important;
+}
+html[data-aura-theme="dark"] .khalories-log-redesign .khalories-manual-flow [aria-label="Live nutrition summary"] :is(.text-slate-900, .text-violet-700) {
+  color: #e7f8e9 !important;
+}
+/* Floating Coach FONZ also follows dark mode, preserving readable replies. */
+html[data-aura-theme="dark"] .wellness-chat-panel { background: #21382d !important; color: #eef8ed !important; border-color: #4b6b50 !important; }
+html[data-aura-theme="dark"] .wellness-chat-panel .wellness-chat-header { background: #176244 !important; color: #fff !important; }
+html[data-aura-theme="dark"] .wellness-chat-panel [data-fonz-speaker="coach"] { background: #31533d !important; border-color: #52765a !important; color: #eef8ed !important; }
+html[data-aura-theme="dark"] .wellness-chat-panel [data-fonz-speaker="you"] { background: #197754 !important; border-color: #237e59 !important; color: #fff !important; }
+html[data-aura-theme="dark"] .wellness-chat-panel .wellness-chat-controls { border-color: #48674f !important; }
+html[data-aura-theme="dark"] .wellness-chat-panel .wellness-free-tip { color: #e1f6db !important; background: #355540 !important; }

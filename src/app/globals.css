@@ -289,3 +289,122 @@ button[data-fonz-fab="true"]::before {
     animation: none !important;
   }
 }
+
+/* Khalories M1: FONZ launcher clears the 70px mobile navigation, including tablets. */
+@media (max-width: 1023px) {
+  button[data-fonz-fab="true"] {
+    position: fixed !important;
+    right: max(16px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 18px) !important;
+  }
+  [data-fonz-panel="true"] {
+    position: fixed !important;
+    right: max(12px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 106px) !important;
+    height: min(530px, calc(100dvh - 194px - env(safe-area-inset-bottom, 0px))) !important;
+    max-height: calc(100dvh - 194px - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+}
+/* Fixed controls remain usable in short landscape viewports. */
+@media (max-width: 1023px) and (max-height: 450px) {
+  [data-fonz-panel="true"] {
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 80px) !important;
+    height: min(230px, calc(100dvh - 164px - env(safe-area-inset-bottom, 0px))) !important;
+    max-height: calc(100dvh - 164px - env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Khalories M2: scoped dark-mode legibility for Meal History and Personal Goals. */
+html[data-aura-theme="dark"] .khalories-dark-meals,
+html[data-aura-theme="dark"] .khalories-dark-goals {
+  background: #13251e !important;
+  color: #edf8ee !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals :is(h1, h2, h3),
+html[data-aura-theme="dark"] .khalories-dark-goals :is(h1, h2, h3) {
+  color: #edf8ee !important;
+}
+/* The meal cards, filter panel and labels were using light-only hex text colors. */
+html[data-aura-theme="dark"] .khalories-dark-meals :is(details.group, details.group > article, section[aria-label="Find meals"]) {
+  background: #20392d !important;
+  border-color: #4a6a52 !important;
+  color: #edf8ee !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals details.group > summary:hover {
+  background: #2d4a3a !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals [class*="text-[#153c2c]"],
+html[data-aura-theme="dark"] .khalories-dark-meals [class*="text-[#194d34]"] {
+  color: #e3f5e7 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals [class*="text-[#176141]"],
+html[data-aura-theme="dark"] .khalories-dark-meals [class*="text-[#245941]"] {
+  color: #a7eab4 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals section[aria-label="Find meals"] label {
+  color: #d6ebdb !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals section[aria-label="Find meals"] :is(input, select) {
+  background: #162d22 !important;
+  color: #f0faf1 !important;
+  border-color: #597761 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals section[aria-label="Find meals"] :is(input, select):focus-visible,
+html[data-aura-theme="dark"] .khalories-dark-goals :is(input, select, button):focus-visible {
+  outline: 2px solid #b2edb9 !important;
+  outline-offset: 2px;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals [aria-label="Quick date filters"] a:not([aria-current="page"]) {
+  background: #2a4836 !important;
+  color: #e1f3e4 !important;
+  border-color: #53735b !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals [aria-label="Quick date filters"] a[aria-current="page"] {
+  background: #186545 !important;
+  color: #fff !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-meals details.group > article .bg-slate-50 {
+  background: #2d4d3a !important;
+  color: #ecf7ed !important;
+}
+/* Goal calculator: brighten its labels and keep its recommendation tiles distinct. */
+html[data-aura-theme="dark"] .khalories-dark-goals :is(form.bg-white, section.bg-white) {
+  background: #20392d !important;
+  color: #f1faf2 !important;
+  border-color: #4d6c56 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals form :is(label, legend, summary),
+html[data-aura-theme="dark"] .khalories-dark-goals form [class~="text-slate-700"] {
+  color: #e0f1e3 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-labelledby="recommended-title"] {
+  background: #2c4b38 !important;
+  border-color: #587760 !important;
+  color: #edf8ee !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-labelledby="recommended-title"] > div > div {
+  background: #183327 !important;
+  color: #edf8ee !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-labelledby="recommended-title"] .text-emerald-800 {
+  color: #b9f0c2 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-label="Height units"] {
+  background: #2b4937 !important;
+  border-color: #557460 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-label="Height units"] button[aria-pressed="true"] {
+  color: #fff !important;
+  background: #176748 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals [aria-label="Height units"] button[aria-pressed="false"] {
+  color: #d0e7d5 !important;
+}
+html[data-aura-theme="dark"] .khalories-dark-goals input,
+html[data-aura-theme="dark"] .khalories-dark-goals select {
+  background: #162d22 !important;
+  color: #edf9ee !important;
+  border-color: #5a7963 !important;
+}
