@@ -52,7 +52,7 @@ export function CheckEmailModal() {
           Check your email!
         </h2>
         <p id="check-email-description" className="text-sm leading-6 text-zinc-300">
-          We&apos;ve sent you a verification link. Open your inbox and click the link to activate your AI Fitness account.
+          We&apos;ve sent you a verification link. Open your inbox and click the link to activate your Khalories AI account.
         </p>
         <p className="rounded-xl border border-white/10 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-300">
           Can&apos;t find it? Check your Spam or Junk folder too.

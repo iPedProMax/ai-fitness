@@ -2,6 +2,7 @@ import { AppearanceBoot } from "@/components/appearance-boot";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./auth/auth-showcase.css";
 import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({
