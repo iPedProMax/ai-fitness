@@ -79,7 +79,7 @@ export default function CoachPage() {
       </header>
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Coach conversation">
         <div className="border-b border-slate-200 px-5 py-4 sm:px-7"><div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 font-bold text-white">AF</div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 font-bold text-white">FZ</div>
           <div><h2 className="font-semibold"><span aria-hidden="true" className="aura-ai-icon-animated mr-1">✦</span>Coach FONZ</h2><p className="text-xs text-slate-500">Purpose-based AI · Explicit provider selection · No paid fallback</p></div>
         </div></div>
         <div className="flex min-h-72 flex-col gap-4 p-5 sm:p-7" role="log" aria-live="polite" aria-relevant="additions text">
