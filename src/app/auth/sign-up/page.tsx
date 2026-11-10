@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AuthShowcaseLayout } from "@/components/auth-showcase-layout";
+import { AuthPasswordField } from "@/components/auth-password-field";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -30,128 +32,27 @@ export default async function SignUpPage({
   const params = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8 shadow-2xl">
-        <div className="mb-8">
-          <p className="mb-2 text-sm font-medium text-emerald-400">
-            Khalories AI
-          </p>
+    <AuthShowcaseLayout mode="signup">
+      <h1 className="k-auth-form-heading">Start your journey.</h1>
+      <p className="k-auth-form-subtitle">One simple account for meals, nutrition, progress, and Coach FONZ.</p>
 
-          <h1 className="text-3xl font-bold tracking-tight">
-            Create your account
-          </h1>
+      {params.error && <div role="alert" className="k-auth-alert k-auth-alert-error">{params.error}</div>}
 
-          <p className="mt-2 text-sm text-zinc-400">
-            Start tracking meals and build your personalized fitness goals.
-          </p>
+      <form action={signUpWithEmail} className="k-auth-form">
+        <div className="k-auth-field">
+          <label htmlFor="email">Email address</label>
+          <input id="email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" className="k-auth-input" />
         </div>
+        <AuthPasswordField id="password" label="Password" autoComplete="new-password" minLength={8} placeholder="At least 8 characters" />
+        <AuthPasswordField id="confirmPassword" label="Confirm password" autoComplete="new-password" minLength={8} placeholder="Repeat your password" />
+        <button type="submit" className="k-auth-submit">Create my account</button>
+      </form>
 
-        {params.error && (
-          <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {params.error}
-          </div>
-        )}
-
-        <form
-          action={signUpWithEmail}
-          className="space-y-5"
-        >
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-zinc-200"
-            >
-              Email
-            </label>
-
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="you@example.com"
-              className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-zinc-200"
-            >
-              Password
-            </label>
-
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              placeholder="At least 8 characters"
-              className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="mb-2 block text-sm font-medium text-zinc-200"
-            >
-              Confirm password
-            </label>
-
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              placeholder="Repeat your password"
-              className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400"
-          >
-            Create account
-          </button>
-        </form>
-
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/10" />
-
-          <span className="text-xs text-zinc-500">
-            or
-          </span>
-
-          <div className="h-px flex-1 bg-white/10" />
-        </div>
-
-        <form action={signInWithGoogle}>
-          <button
-            type="submit"
-            className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 font-semibold text-zinc-950 transition hover:bg-zinc-200"
-          >
-            Continue with Google
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-zinc-400">
-          Already have an account?{" "}
-          <Link
-            href="/auth/login"
-            className="font-medium text-emerald-400 hover:text-emerald-300"
-          >
-            Sign in
-          </Link>
-        </p>
-      </div>
-    </main>
+      <div className="k-auth-divider">or continue with</div>
+      <form action={signInWithGoogle}>
+        <button type="submit" className="k-auth-google"><span className="k-auth-google-mark" aria-hidden="true">G</span>Continue with Google</button>
+      </form>
+      <p className="k-auth-switch">Already tracking with us? <Link href="/auth/login">Sign in</Link></p>
+    </AuthShowcaseLayout>
   );
 }

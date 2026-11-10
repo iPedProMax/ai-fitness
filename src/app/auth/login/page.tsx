@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AuthShowcaseLayout } from "@/components/auth-showcase-layout";
+import { AuthPasswordField } from "@/components/auth-password-field";
 import { CheckEmailModal } from "@/components/check-email-modal";
 import { redirect } from "next/navigation";
 
@@ -32,114 +34,28 @@ export default async function LoginPage({
   const params = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
+    <AuthShowcaseLayout mode="login">
       {params.message === "Account created. Check your email if confirmation is required, then sign in." && <CheckEmailModal />}
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900 p-8 shadow-2xl">
-        <div className="mb-8">
-          <p className="mb-2 text-sm font-medium text-emerald-400">
-            Khalories AI
-          </p>
+      <h1 className="k-auth-form-heading">Welcome back.</h1>
+      <p className="k-auth-form-subtitle">Ready for your next small win? Sign in to pick up where you left off.</p>
 
-          <h1 className="text-3xl font-bold tracking-tight">
-            Welcome back
-          </h1>
+      {params.error && <div role="alert" className="k-auth-alert k-auth-alert-error">{params.error}</div>}
+      {params.message && <div role="status" className="k-auth-alert k-auth-alert-info">{params.message}</div>}
 
-          <p className="mt-2 text-sm text-zinc-400">
-            Sign in to continue tracking your meals and progress.
-          </p>
+      <form action={signInWithEmail} className="k-auth-form">
+        <div className="k-auth-field">
+          <label htmlFor="email">Email address</label>
+          <input id="email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" className="k-auth-input" />
         </div>
+        <AuthPasswordField id="password" label="Password" autoComplete="current-password" placeholder="Your password" />
+        <button type="submit" className="k-auth-submit">Sign in to Khalories</button>
+      </form>
 
-        {params.error && (
-          <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {params.error}
-          </div>
-        )}
-
-        {params.message && (
-          <div className="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            {params.message}
-          </div>
-        )}
-
-        <form
-          action={signInWithEmail}
-          className="space-y-5"
-        >
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-zinc-200"
-            >
-              Email
-            </label>
-
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="you@example.com"
-              className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-zinc-200"
-            >
-              Password
-            </label>
-
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              placeholder="Your password"
-              className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400"
-          >
-            Sign in
-          </button>
-        </form>
-
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/10" />
-
-          <span className="text-xs text-zinc-500">
-            or
-          </span>
-
-          <div className="h-px flex-1 bg-white/10" />
-        </div>
-
-        <form action={signInWithGoogle}>
-          <button
-            type="submit"
-            className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 font-semibold text-zinc-950 transition hover:bg-zinc-200"
-          >
-            Continue with Google
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-zinc-400">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/auth/sign-up"
-            className="font-medium text-emerald-400 hover:text-emerald-300"
-          >
-            Create one
-          </Link>
-        </p>
-      </div>
-    </main>
+      <div className="k-auth-divider">or continue with</div>
+      <form action={signInWithGoogle}>
+        <button type="submit" className="k-auth-google"><span className="k-auth-google-mark" aria-hidden="true">G</span>Continue with Google</button>
+      </form>
+      <p className="k-auth-switch">New to Khalories? <Link href="/auth/sign-up">Create an account</Link></p>
+    </AuthShowcaseLayout>
   );
 }
