@@ -59,7 +59,8 @@ export function freeTextBody(id: FreeTextProviderId, request: AiGenerationReques
       provider: { require_parameters: true },
     } : {}),
     stream: false,
-    max_tokens: 3072,
+    // A little more headroom for the long nutrition JSON schema, no extra requests.
+    max_tokens: id === "openrouter" && images.length === 0 ? 4096 : 3072,
   });
   if (Buffer.byteLength(body, "utf8") > 8_100_000) throw new AiRoutingError("INPUT_TOO_LARGE");
   return body;
@@ -102,11 +103,23 @@ export function createFreeTextProvider(id: FreeTextProviderId, apiKey: string, e
         throw validated.error;
       }
       const choice = validated.data.choices[0];
-      if ((choice.finish_reason && choice.finish_reason !== "stop") || !choice.message.content?.trim()) {
+      const hasContent = Boolean(choice.message.content?.trim());
+      if ((choice.finish_reason && choice.finish_reason !== "stop") || !hasContent) {
+        // Only fixed, non-sensitive values: never log user text, response content,
+        // provider error bodies, token strings, or request identifiers.
+        if (id === "openrouter" && !isVisionPilot && process.env.NODE_ENV !== "test") {
+          const reason = choice.finish_reason;
+          const finishReason = reason === "stop" || reason === "length" || reason === "error" ||
+            reason === "content_filter" || reason === "tool_calls" ? reason : "unknown";
+          console.warn("[AI_TEXT_PROVIDER_DIAGNOSTIC] " + JSON.stringify({
+            provider: "openrouter", stage: "EMPTY_OR_INCOMPLETE", finishReason,
+            hasContent,
+          }));
+        }
         if (isVisionPilot) console.warn("[AI_VISION_PROVIDER_DIAGNOSTIC] " + JSON.stringify({ provider: "openrouter", stage: "EMPTY_OR_INCOMPLETE" }));
         throw new Error("Text provider output incomplete");
       }
-      return { outputText: choice.message.content };
+      return { outputText: choice.message.content ?? "" };
     },
   };
 }
