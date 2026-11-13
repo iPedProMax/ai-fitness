@@ -22,7 +22,7 @@ describe("Q4.11D OpenRouter free JSON-mode safeguard (mocked only)", () => {
       response_format: { type: "json_object" },
       provider: { require_parameters: true },
       stream: false,
-      max_tokens: 3072,
+      max_tokens: 4096,
     });
     expect(body.messages[0].content).toContain("JSON Schema");
     expect(fetchMock).not.toHaveBeenCalled();
